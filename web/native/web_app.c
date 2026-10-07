@@ -27,6 +27,8 @@ extern void web_input(int id,int bits);
 static int phase, boot_frame, run_frame, status;
 static int achieved_parries, end_frames, end_result;
 static int chun_super_frame=-1,audio_frame;
+static int evo_failed,evo_kicks,evo_kick_parries,evo_kick_parried;
+static u16 evo_attack_id;
 static GameState checkpoint;
 static unsigned char effects[sizeof(frw)];
 static short effect_heads[8],effect_tails[8],effect_queue[EFFECT_MAX],effect_exec[8];
@@ -81,6 +83,7 @@ EMSCRIPTEN_KEEPALIVE void web_reset(void) {
  Clear_texcash_work();
  p1sw_0=p1sw_1=p2sw_0=p2sw_1=p1sw_buff=p2sw_buff=0;
  web_input(0,0);web_input(1,0);run_frame=0;audio_frame=0;chun_super_frame=-1;achieved_parries=0;end_frames=end_result=0;status=1;
+ evo_failed=evo_kicks=evo_kick_parries=evo_kick_parried=0;evo_attack_id=0;
 }
 static void setup_challenge(void) {
  // Match the subway camera and wide, right-facing approach in the official footage.
@@ -119,6 +122,27 @@ EMSCRIPTEN_KEEPALIVE int web_init(void) {
 }
 EMSCRIPTEN_KEEPALIVE void web_start(void) {if(saved)status=2;}
 EMSCRIPTEN_KEEPALIVE int web_status(void) {return status;}
+static int evo_optional_kick(void) {
+ // These two kicks naturally miss at the reference spacing after parry pushback.
+ return evo_kicks==5||evo_kicks==13;
+}
+static void check_evo_sequence(int previous_parries) {
+ if(evo_failed||chun_super_frame<0)return;
+ if(plw[0].wu.vital_new<1||end_result==3){evo_failed=1;return;}
+ if(achieved_parries>=15)return;
+ if(plw[1].wu.routine_no[1]!=4||plw[1].wu.routine_no[2]!=20){evo_failed=1;return;}
+ u16 attack_id=plw[1].wu.attack_num;
+ if(attack_id&&attack_id!=evo_attack_id){
+  if(evo_kicks&&!evo_optional_kick()&&!evo_kick_parried){evo_failed=1;return;}
+  evo_attack_id=attack_id;evo_kicks++;evo_kick_parries=previous_parries;evo_kick_parried=0;
+ }
+ if(!evo_kicks)return;
+ if(achieved_parries>evo_kick_parries)evo_kick_parried=1;
+ // A hit or block consumes the attack without a successful parry.
+ if(!plw[1].wu.att_hit_ok&&!evo_kick_parried){evo_failed=1;return;}
+ // A connecting kick's active window ended without a parry (escape or dodge).
+ if(!plw[1].wu.cg_att_ix&&!evo_optional_kick()&&!evo_kick_parried)evo_failed=1;
+}
 EMSCRIPTEN_KEEPALIVE void web_step(int bits) {
  if(phase<5) {
   web_input(0,0);web_input(1,0);frame();boot_frame++;
@@ -140,16 +164,19 @@ EMSCRIPTEN_KEEPALIVE void web_step(int bits) {
  else if(t<8&&t>=6)b=SWK_DOWN;
  else if(t<10&&t>=8)b=SWK_DOWN|SWK_RIGHT;
  else if(t<12&&t>=10)b=SWK_RIGHT|SWK_SOUTH;
+ int previous_parries=achieved_parries;
  web_input(1,b);frame();run_frame++;audio_frame++;
  if(chun_super_frame<0&&plw[1].wu.routine_no[1]==4&&plw[1].wu.routine_no[2]==20)chun_super_frame=run_frame-1;
  if(paring_ctr_vs[1][0]>achieved_parries)achieved_parries=paring_ctr_vs[1][0];
  if(plw[0].wu.vital_new<0)end_result=3;
  else if(plw[1].wu.vital_new<0)end_result=achieved_parries>=15?4:3;
  else if(run_frame>1200)end_result=3;
+ check_evo_sequence(previous_parries);
  if(end_result)end_frames=72;
 }
 EMSCRIPTEN_KEEPALIVE int web_value(int key) {
  switch(key) {
+ case 54:return evo_failed;case 55:return evo_kicks;
  case 52:return chun_super_frame;case 53:return audio_frame;
  case 0:return boot_frame;case 1:return phase;case 2:return run_frame;
  case 3:return plw[0].wu.vital_new;case 4:return plw[1].wu.vital_new;

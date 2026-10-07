@@ -2,7 +2,7 @@
 const $ = id => document.getElementById(id);
 const canvas=$('canvas'),overlay=$('overlay'),play=$('play'),helpDialog=$('help-dialog');
 let resumeAfterHelp=false,startPending=false;
-const audioMixer=new MomentAudio({volume:$('game-volume'),volumeValue:$('game-volume-value'),evoToggle:$('evo-audio')});
+const audioMixer=new MomentAudio({volume:$('game-volume'),volumeValue:$('game-volume-value'),evoVolume:$('evo-volume'),evoValue:$('evo-volume-value')});
 const keys=new Set(),mapping={ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,KeyZ:16,KeyX:32,KeyC:64,KeyA:256,KeyS:512,KeyD:1024};
 let engine,ready=false,paused=false,attempt=1,lastStatus=-1,lastParries=-1,lastTime=0,accumulator=0,padRetry=false,padPause=false;
 const FPS=59.59949,stepMS=1000/FPS;
@@ -57,7 +57,7 @@ function update(){
  const status=engine._web_status(),count=engine._web_value(5);
  if(count!==lastParries){lastParries=count;$('parries').textContent=String(count).padStart(2,'0');Array.from($('parry-markers').children).forEach((el,i)=>el.classList.toggle('done',i<count));$('parry-progress').setAttribute('aria-valuenow',count);$('parry-progress').setAttribute('aria-valuetext',`${count} of 15 parries`);}
  if(status===lastStatus)return;lastStatus=status;
- if(status===1){$('evo-audio').disabled=false;canvas.style.visibility='visible';ready=true;play.disabled=false;play.innerHTML='Start challenge <span>↗</span>';$('overlay-title').textContent='Evo Moment #37';$('overlay-copy').textContent="Try to replicate Daigo’s Evo Moment #37.";$('load-track').hidden=true;$('load-note').hidden=true;$('retry').disabled=false;$('pause').disabled=false;$('phase-label').textContent='READY · PRESS ENTER TO BEGIN';}
+ if(status===1){$('evo-volume').disabled=false;canvas.style.visibility='visible';ready=true;play.disabled=false;play.innerHTML='Start challenge <span>↗</span>';$('overlay-title').textContent='Evo Moment #37';$('overlay-copy').textContent="Try to replicate Daigo’s Evo Moment #37.";$('load-track').hidden=true;$('load-note').hidden=true;$('retry').disabled=false;$('pause').disabled=false;$('phase-label').textContent='READY · PRESS ENTER TO BEGIN';}
  if(status===2){$('phase-label').textContent='SURVIVE THE SUPER · FINISH THE COMEBACK';}
  if(status===3||status===4){overlay.hidden=false;$('overlay-tag').textContent=status===4?'THE COMEBACK':'ONE HIT WAS ALL IT TOOK';$('overlay-title').textContent=status===4?'You made the moment.':'Run it back.';$('overlay-copy').textContent=status===4?'Chun-Li is down. The comeback is yours.':engine._web_value(3)<0?`${count} parries. Tap forward just before impact, and release between hits.`:engine._web_value(4)<0?'Chun-Li is down, but all fifteen parries are needed to complete the challenge.':'Time is up. Parry all fifteen kicks, then finish the comeback.';play.innerHTML='Try again <span>↻</span>';$('phase-label').textContent=status===4?'CHALLENGE COMPLETE':'K.O. · PRESS R TO RETRY';}
 }
@@ -86,14 +86,16 @@ document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListene
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resumeAfterHelp=false;if(document.hidden&&ready&&!paused&&engine._web_status()===2)togglePause();});
 play.onclick=()=>{if(engine._web_status()>=3)retry();else start();};$('retry').onclick=retry;$('pause').onclick=togglePause;$('resume').onclick=togglePause;
 $('fullscreen').onclick=()=>document.fullscreenElement?document.exitFullscreen():$('game').requestFullscreen();
-$('evo-audio').addEventListener('change',async()=>{
- if(!ready){$('evo-audio').checked=false;return;}
- const enabled=$('evo-audio').checked,wasRunning=engine._web_status()===2&&!paused;
- if(enabled&&wasRunning&&!audioMixer.buffer)setPaused(true);
- try{await audioMixer.enable(enabled);}
- catch(error){console.error(error);$('evo-audio').title=error.message;}
- if(enabled&&wasRunning&&!helpDialog.open)setPaused(false);
- if(enabled&&engine._web_status()===2&&!paused)audioMixer.frame(engine);
+$('evo-volume').addEventListener('input',async()=>{
+ if(!ready)return;
+ audioMixer.setEvoVolume($('evo-volume').value);
+ const wasRunning=engine._web_status()===2&&!paused,volumeAttempt=attempt;
+ const needsLoad=audioMixer.enabled&&!audioMixer.buffer&&!audioMixer.complete;
+ if(needsLoad&&wasRunning)setPaused(true);
+ try{if(audioMixer.enabled)await audioMixer.arm();}
+ catch(error){console.error(error);$('evo-volume').title=error.message;}
+ if(needsLoad&&wasRunning&&attempt===volumeAttempt&&!helpDialog.open)setPaused(false);
+ if(engine._web_status()===2&&!paused)audioMixer.frame(engine);
 });
 $('help').onclick=openHelp;$('help-close').onclick=closeHelp;
 helpDialog.addEventListener('cancel',e=>{e.preventDefault();closeHelp();});

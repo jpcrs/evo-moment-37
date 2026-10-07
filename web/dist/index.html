@@ -18,8 +18,8 @@
       <div id="parry-markers" aria-hidden="true"></div>
     </div>
     <div class="top-controls">
-      <label class="volume-control" for="game-volume"><span>Volume</span><input id="game-volume" type="range" min="0" max="100" value="100" step="1" aria-label="Game volume"><output id="game-volume-value" for="game-volume">100%</output></label>
-      <label class="evo-audio-control"><input id="evo-audio" type="checkbox" checked disabled><span>Evo audio</span></label>
+      <label class="volume-control" for="game-volume"><span>Game</span><input id="game-volume" type="range" min="0" max="100" value="100" step="1" aria-label="Game volume"><output id="game-volume-value" for="game-volume">100%</output></label>
+      <label class="volume-control" for="evo-volume"><span>Evo</span><input id="evo-volume" type="range" min="0" max="100" value="100" step="1" aria-label="Evo recording volume" disabled><output id="evo-volume-value" for="evo-volume">100%</output></label>
     <button class="help-button" id="help" aria-haspopup="dialog" aria-controls="help-dialog"><span aria-hidden="true">?</span> Help</button>
     </div>
   </div>
@@ -54,7 +54,7 @@
       </div>
       <div class="help-videos"><a href="https://www.youtube.com/watch?v=JzS96auqau0" target="_blank" rel="noopener noreferrer">Watch Daigo’s Evo Moment #37 <span aria-hidden="true">↗</span></a><a href="https://www.youtube.com/watch?v=jQ_2iIqxH7Y" target="_blank" rel="noopener noreferrer">Bonus <span aria-hidden="true">↗</span></a></div>
       <p class="help-credits">Built with <a href="https://github.com/crowded-street/3sx" target="_blank" rel="noopener noreferrer">3SX by Crowded Street</a>, based on <a href="https://github.com/crowded-street/3s-decomp" target="_blank" rel="noopener noreferrer">3s-decomp</a>.<br><a href="https://github.com/jpcrs/evo-moment-37" target="_blank" rel="noopener noreferrer">Browser port source</a> · <a href="LICENSE-3SX.txt" target="_blank" rel="noopener noreferrer">AGPL-3.0</a></p>
-      <p class="help-note">Volume adjusts the game audio. Evo audio adds the original recording, starting with Chun-Li’s super.<br>Opening Help pauses an active attempt. Closing it returns you to the game.</p>
+      <p class="help-note">Game and Evo adjust their audio independently; 0% mutes a track. The Evo recording starts with Chun-Li’s super and stops on a failed parry or an escape. Complete all fifteen parries to keep it playing.<br>Opening Help pauses an active attempt. Closing it returns you to the game.</p>
     </dialog>
   </div>
   <div class="game-bottom">

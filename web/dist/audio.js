@@ -1,12 +1,13 @@
 /* Browser mixing only. The engine still produces its own sound and super activation. */
 class MomentAudio {
-  constructor({volume,volumeValue,evoToggle}) {
-    this.volume=volume;this.volumeValue=volumeValue;this.evoToggle=evoToggle;
+  constructor({volume,volumeValue,evoVolume,evoValue}) {
+    this.volume=volume;this.volumeValue=volumeValue;this.evoVolume=evoVolume;this.evoValue=evoValue;
     this.context=null;this.gameGain=null;this.evoGain=null;this.buffer=null;this.loading=null;
-    this.enabled=evoToggle.checked;this.source=null;this.offset=0;this.anchor=0;this.clockStart=null;
-    this.status=this.enabled?'ready':'off';this.starts=0;this.lastDrift=0;this.complete=false;this.suspended=false;
+    this.enabled=false;this.source=null;this.offset=0;this.anchor=0;this.clockStart=null;
+    this.status='off';this.starts=0;this.lastDrift=0;this.complete=false;this.suspended=false;
     volume.addEventListener('input',()=>this.setVolume(volume.value));
     this.setVolume(volume.value);
+    this.setEvoVolume(evoVolume.value);
   }
   init(engine) {
     this.context=engine.SDL3.audioContext;
@@ -15,6 +16,7 @@ class MomentAudio {
     output.disconnect();output.connect(this.gameGain);this.gameGain.connect(this.context.destination);
     this.evoGain.connect(this.context.destination);
     this.setVolume(this.volume.value);
+    this.setEvoVolume(this.evoVolume.value);
   }
   setVolume(value) {
     const percent=Math.max(0,Math.min(100,Number(value)));
@@ -22,28 +24,34 @@ class MomentAudio {
     this.volume.setAttribute('aria-valuetext',`${percent} percent`);
     if(this.gameGain){if(this.context.state==='running')this.gameGain.gain.setTargetAtTime(percent/100,this.context.currentTime,.01);else this.gameGain.gain.value=percent/100;}
   }
+  setEvoVolume(value) {
+    const percent=Math.max(0,Math.min(100,Number(value)));
+    this.enabled=percent>0;this.evoVolume.value=percent;this.evoValue.value=`${percent}%`;
+    this.evoVolume.setAttribute('aria-valuetext',`${percent} percent`);
+    if(this.evoGain){
+      const gain=this.evoGain.gain,time=this.context.currentTime;gain.cancelScheduledValues(time);
+      if(this.context.state==='running'&&this.source)gain.setTargetAtTime(percent/100,time,.01);
+      else{gain.value=percent/100;gain.setValueAtTime(percent/100,time);}
+    }
+    if(!this.source&&!this.complete&&(this.status==='ready'||this.status==='off'))this.status=this.enabled?'ready':'off';
+  }
   async load() {
     if(this.buffer)return this.buffer;
     if(this.loading)return this.loading;
-    this.status='loading';this.evoToggle.setAttribute('aria-busy','true');
+    this.status='loading';this.evoVolume.setAttribute('aria-busy','true');
     this.loading=(async()=>{
       const response=await fetch('audio/evo-moment37.wav');
       if(!response.ok)throw new Error('The Evo audio track could not be loaded.');
       const bytes=await response.arrayBuffer();
       this.buffer=await this.context.decodeAudioData(bytes);
-      this.status='ready';return this.buffer;
-    })().catch(error=>{this.status='error';this.enabled=false;this.evoToggle.checked=false;throw error;})
-      .finally(()=>{this.loading=null;this.evoToggle.removeAttribute('aria-busy');});
+      this.status=this.enabled?'ready':'off';return this.buffer;
+    })().catch(error=>{this.setEvoVolume(0);this.status='error';throw error;})
+      .finally(()=>{this.loading=null;this.evoVolume.removeAttribute('aria-busy');});
     return this.loading;
-  }
-  async enable(value) {
-    this.enabled=value;
-    if(!value){this.stop();this.status='off';return;}
-    await this.context.resume();await this.load();
   }
   async arm() {
     if(this.context.state==='suspended')await this.context.resume();
-    if(this.enabled)await this.load();
+    if(this.enabled&&!this.complete)await this.load();
   }
   reset() {
     this.stop();this.clockStart=null;this.offset=0;this.complete=false;this.suspended=false;
@@ -69,20 +77,21 @@ class MomentAudio {
   }
   resume(engine) {
     this.suspended=false;
-    if(this.enabled&&this.clockStart!==null&&!this.complete)this.play(this.target(engine));
+    if(this.buffer&&this.clockStart!==null&&!this.complete)this.play(this.target(engine));
   }
   target(engine) {return Math.max(0,(engine._web_value(53)-this.clockStart-1)/59.59949);}
   frame(engine) {
-    if(!this.enabled||!this.buffer||this.suspended||this.complete)return;
+    if(this.suspended||this.complete)return;
+    if(engine._web_value(54)||engine._web_status()===3){this.stop();this.complete=true;this.status='stopped';return;}
+    if(!this.buffer)return;
     const activation=engine._web_value(52);
     if(activation<0)return;
     if(this.clockStart===null){this.clockStart=activation;this.play(this.target(engine));return;}
-    if(engine._web_status()===3){this.stop();this.complete=true;this.status='stopped';return;}
     if(engine._web_status()===4)return; // Let the recorded reaction finish after a successful attempt.
     if(!this.source){this.play(this.target(engine));return;}
     this.lastDrift=this.target(engine)-this.position();
     // Correct a browser stall without delaying the game or changing its frame calculations.
     if(Math.abs(this.lastDrift)>2/59.59949)this.play(this.target(engine));
   }
-  get state() {return {enabled:this.enabled,status:this.status,ready:!!this.buffer,activationFrame:this.clockStart,starts:this.starts,offset:this.offset,position:this.context?this.position():0,lastDrift:this.lastDrift,gameVolume:this.gameGain?.gain.value??1};}
+  get state() {return {enabled:this.enabled,status:this.status,ready:!!this.buffer,activationFrame:this.clockStart,starts:this.starts,offset:this.offset,position:this.context?this.position():0,lastDrift:this.lastDrift,gameVolume:this.gameGain?.gain.value??1,evoVolume:this.evoGain?.gain.value??Number(this.evoVolume.value)/100};}
 }

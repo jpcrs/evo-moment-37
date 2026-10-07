@@ -2,6 +2,7 @@ const {chromium}=require('@playwright/test');
 const assert=require('node:assert/strict');
 const {spawn}=require('node:child_process');
 const path=require('node:path');
+const golden=require('./golden-inputs.json');
 (async()=>{
  const root=path.resolve(__dirname,'../..'),server=spawn('python3',['web/serve.py','--port','3739'],{cwd:root,stdio:['ignore','pipe','pipe']});let browser;
  try{
@@ -12,7 +13,8 @@ const path=require('node:path');
   assert.equal(await page.locator('#overlay-copy').innerText(),'Try to replicate Daigo’s Evo Moment #37.');
   assert.equal(await page.locator('.help-videos a').nth(0).getAttribute('href'),'https://www.youtube.com/watch?v=JzS96auqau0');
   assert.equal(await page.locator('.help-videos a').nth(1).getAttribute('href'),'https://www.youtube.com/watch?v=jQ_2iIqxH7Y');
-  assert.equal(await page.isChecked('#evo-audio'),true,'Evo audio is selected by default');
+  assert.equal(await page.locator('#evo-volume').inputValue(),'100','Evo volume starts at 100%');
+  assert.equal(await page.locator('input[type="checkbox"]').count(),0,'Evo volume replaces the checkbox');
   assert.equal(await page.evaluate(()=>moment37.audio.enabled),true);
   assert.equal(requests.filter(u=>u.endsWith('evo-moment37.wav')).length,0,'Overlay audio is lazy-loaded when the challenge starts');
   await page.locator('#game-volume').evaluate(el=>{el.value='35';el.dispatchEvent(new Event('input',{bubbles:true}));});
@@ -30,17 +32,65 @@ const path=require('node:path');
   assert.equal(paused.audio.status,'paused');await page.waitForTimeout(120);
   const held=await page.evaluate(()=>({audio:moment37.audio,frame:moment37.engine._web_value(53)}));
   assert.equal(held.frame,paused.frame);assert.equal(held.audio.position,paused.audio.position);
+  await page.locator('#evo-volume').evaluate(el=>{el.value='45';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>Math.abs(moment37.audio.evoVolume-.45)<.005);
+  assert.equal(await page.locator('#evo-volume-value').innerText(),'45%');
+  assert.equal(await page.evaluate(()=>moment37.audio.status),'paused','Changing volume must preserve pause');
+  assert.ok(await page.evaluate(()=>moment37.audio.gameVolume>.34&&moment37.audio.gameVolume<.37),'Evo volume must not change game volume');
   await page.keyboard.press('Space');await page.waitForFunction(()=>moment37.audio.status==='playing');
   const resumed=await page.evaluate(()=>moment37.audio);assert.ok(resumed.offset>=paused.audio.offset);
   await page.keyboard.press('KeyR');await page.waitForFunction(()=>moment37.engine._web_value(52)<0&&!moment37.audio.activationFrame);
   const reset=await page.evaluate(()=>moment37.audio);assert.equal(reset.activationFrame,null);assert.equal(reset.position,0);
-  await page.uncheck('#evo-audio');assert.equal(await page.evaluate(()=>moment37.audio.status),'off');
+  assert.equal(await page.locator('#evo-volume').inputValue(),'45','Retry preserves Evo volume');
+  await page.locator('#evo-volume').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>moment37.audio.evoVolume<.005);
+  assert.equal(await page.evaluate(()=>moment37.audio.enabled),false);
+  await page.locator('#canvas').focus();await page.keyboard.press('Space');await page.waitForFunction(()=>moment37.state.paused);
+  const sequences=await page.evaluate(golden=>{
+   const e=moment37.engine;e._web_render(0);
+   function run(inputs,maxFrames=1100){
+    e._web_reset();e._web_start();audioMixer.reset();let firstStop=null,parry=0,events=[],naturalMisses=[];
+    for(let f=0;f<maxFrames&&e._web_status()===2;f++){
+     e._web_step(inputs[f]||0);audioMixer.frame(e);
+     const count=e._web_value(5),kick=e._web_value(55);
+     if(count>parry){events.push({frame:f,parries:count,audio:audioMixer.state.status});parry=count;}
+     if((kick===5||kick===13)&&naturalMisses.at(-1)?.kick!==kick)naturalMisses.push({kick,parries:count,audio:audioMixer.state.status});
+     if(audioMixer.state.status==='stopped'&&!firstStop)firstStop={frame:f,hp:e._web_value(3),parries:count,kick,gameStatus:e._web_status(),result:e._web_value(40)};
+    }
+    return{firstStop,events,naturalMisses,hp:e._web_value(3),parries:e._web_value(5),gameStatus:e._web_status(),failed:e._web_value(54),audio:audioMixer.state.status};
+   }
+   const missing={...golden.inputs};delete missing[245];
+   const escape=Object.fromEntries(Array.from({length:80},(_,f)=>[f,8]));
+   const parriesOnly=Object.fromEntries(Object.entries(golden.inputs).filter(([f])=>Number(f)<=445));
+   const results={success:run(golden.inputs),allParries:run(parriesOnly,480),mistake:run({}),lateMistake:run(missing),escape:run(escape)};
+   const starts=audioMixer.starts;audioMixer.setEvoVolume(75);audioMixer.resume(e);audioMixer.frame(e);
+   results.cannotRestartFailedAudio=audioMixer.starts===starts&&audioMixer.state.status==='stopped';
+   e._web_render(1);e._web_reset();audioMixer.reset();return results;
+  },golden);
+  assert.equal(sequences.success.firstStop,null);assert.equal(sequences.success.gameStatus,4);assert.equal(sequences.success.failed,0);
+  assert.equal(sequences.success.events.length,15);assert.ok(sequences.success.events.every(event=>event.audio==='playing'));
+  assert.deepEqual(sequences.success.naturalMisses.map(event=>event.kick),[5,13]);assert.ok(sequences.success.naturalMisses.every(event=>event.audio==='playing'));
+  assert.equal(sequences.allParries.parries,15);assert.equal(sequences.allParries.firstStop,null);assert.equal(sequences.allParries.audio,'playing');
+  assert.equal(sequences.mistake.firstStop.frame,153);assert.equal(sequences.mistake.firstStop.gameStatus,2);assert.equal(sequences.mistake.firstStop.result,0,'Audio stops at the missed parry, before the delayed KO');
+  assert.equal(sequences.lateMistake.firstStop.parries,5);assert.equal(sequences.lateMistake.firstStop.frame,245);
+  assert.equal(sequences.escape.firstStop.parries,0);assert.equal(sequences.escape.firstStop.hp,1,'Escaping cuts audio even while Ken is alive');assert.ok(sequences.escape.firstStop.frame<180);
+  assert.equal(sequences.cannotRestartFailedAudio,true);
+  assert.equal(requests.filter(u=>u.endsWith('evo-moment37.wav')).length,1,'Retries and volume changes reuse the decoded recording');
   await page.locator('#game-volume').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
   await page.waitForFunction(()=>moment37.audio.gameVolume<.005);
   await page.click('#help');await page.screenshot({path:path.join(root,'web/tests/audio-help.png'),fullPage:true});
   await page.click('#help-close');await page.keyboard.press('KeyR');await page.screenshot({path:path.join(root,'web/tests/audio-controls.png'),fullPage:true});
   await page.setViewportSize({width:390,height:844});await page.waitForTimeout(80);
   const mobile=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth}));assert.equal(mobile.width,mobile.viewport);
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,cue,paused:paused.audio,resumed,reset,mobile},null,2));
+  await page.setViewportSize({width:320,height:640});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth),320);
+  const muted=await browser.newPage();await muted.goto('http://127.0.0.1:3739');await muted.waitForFunction(()=>moment37.state.ready);
+  let mutedRequests=0;muted.on('request',r=>{if(r.url().endsWith('evo-moment37.wav'))mutedRequests++;});
+  await muted.locator('#evo-volume').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await muted.click('#play');await muted.waitForFunction(()=>moment37.state.status===2);assert.equal(mutedRequests,0,'Starting muted does not download the recording');
+  await muted.locator('#evo-volume').evaluate(el=>{el.value='60';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await muted.waitForFunction(()=>moment37.audio.ready&&!moment37.state.paused);
+  assert.equal(mutedRequests,1);await muted.waitForFunction(()=>moment37.audio.status==='playing');
+  assert.ok(await muted.evaluate(()=>Math.abs(moment37.audio.evoVolume-.6)<.005));await muted.close();
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,cue,paused:paused.audio,resumed,reset,sequences,mobile},null,2));
  }finally{await browser?.close();server.kill();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

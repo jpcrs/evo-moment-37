@@ -89,8 +89,6 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
 .volume-control {display:flex;align-items:center;gap:6px;font-size:9px;letter-spacing:0}
 .volume-control input {width:64px;height:16px;margin:0;accent-color:var(--cyan);cursor:pointer}
 .volume-control output {width:30px;text-align:right;font-variant-numeric:tabular-nums}
-.evo-audio-control {display:flex;align-items:center;gap:5px;font-size:9px;letter-spacing:0;cursor:pointer}
-.evo-audio-control input {margin:0;accent-color:var(--cyan);cursor:pointer}
 .top-controls .help-button {padding-left:0}
 .help-videos {display:flex;justify-content:space-between;gap:16px;border-top:1px solid var(--line);margin-top:20px;padding-top:18px;font-size:12px}
 .help-videos a {color:var(--cyan);text-decoration:none;line-height:1.5}
@@ -103,7 +101,6 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
  .game-top {grid-template-columns:1fr auto;min-height:80px;padding-top:10px;padding-bottom:10px;gap:8px}
  .top-controls {grid-column:2;grid-row:1}
  .parry-progress {grid-column:1 / -1;justify-content:center}
- .volume-control>span {display:none}
  .top-controls {gap:12px}
 }
 @media(max-width:700px) {
@@ -114,6 +111,12 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
  .parry-progress {grid-column:2;grid-row:1;gap:0}
  .parry-progress #parry-markers,.counter-label {display:none}
  .volume-control>span {display:inline}
- .volume-control input {width:80px}
+ .volume-control input {width:58px}
  .top-controls .help-button {grid-column:auto;grid-row:auto}
+}
+@media(max-width:400px) {
+ .top-controls {gap:8px}
+ .volume-control {gap:4px}
+ .volume-control input {width:46px}
+ .volume-control output {width:26px}
 }
