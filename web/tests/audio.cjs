@@ -1,0 +1,46 @@
+const {chromium}=require('@playwright/test');
+const assert=require('node:assert/strict');
+const {spawn}=require('node:child_process');
+const path=require('node:path');
+(async()=>{
+ const root=path.resolve(__dirname,'../..'),server=spawn('python3',['web/serve.py','--port','3739'],{cwd:root,stdio:['ignore','pipe','pipe']});let browser;
+ try{
+  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('error',reject);});
+  browser=await chromium.launch();const page=await browser.newPage({viewport:{width:1366,height:900}}),errors=[],requests=[];
+  page.on('pageerror',e=>errors.push(e.message));page.on('request',r=>requests.push(r.url()));
+  await page.goto('http://127.0.0.1:3739');await page.waitForFunction(()=>moment37.state.ready);
+  assert.equal(await page.locator('#overlay-copy').innerText(),'Try to replicate Daigo’s Evo Moment #37.');
+  assert.equal(await page.locator('.help-videos a').nth(0).getAttribute('href'),'https://www.youtube.com/watch?v=JzS96auqau0');
+  assert.equal(await page.locator('.help-videos a').nth(1).getAttribute('href'),'https://www.youtube.com/watch?v=jQ_2iIqxH7Y');
+  assert.equal(await page.isChecked('#evo-audio'),true,'Evo audio is selected by default');
+  assert.equal(await page.evaluate(()=>moment37.audio.enabled),true);
+  assert.equal(requests.filter(u=>u.endsWith('evo-moment37.wav')).length,0,'Overlay audio is lazy-loaded when the challenge starts');
+  await page.locator('#game-volume').evaluate(el=>{el.value='35';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>Math.abs(moment37.audio.gameVolume-.35)<.005);
+  assert.equal(await page.locator('#game-volume-value').innerText(),'35%');
+  await page.click('#play');await page.waitForFunction(()=>moment37.audio.ready);
+  assert.equal(requests.filter(u=>u.endsWith('evo-moment37.wav')).length,1);
+  await page.locator('#game-volume').focus();await page.keyboard.press('ArrowRight');
+  assert.equal(await page.evaluate(()=>moment37.engine._web_value(31)&8),0,'Volume keyboard control must not move Ken');
+  await page.waitForFunction(()=>moment37.audio.status==='playing',{},{timeout:5000});
+  const cue=await page.evaluate(()=>({audio:moment37.audio,frame:moment37.engine._web_value(53),engineCue:moment37.engine._web_value(52)}));
+  assert.equal(cue.engineCue,100);assert.equal(cue.audio.activationFrame,cue.engineCue);
+  assert.ok(cue.audio.offset<=2/59.59949,'Track starts from the beginning at the super cue');
+  await page.click('#pause');const paused=await page.evaluate(()=>({audio:moment37.audio,frame:moment37.engine._web_value(53)}));
+  assert.equal(paused.audio.status,'paused');await page.waitForTimeout(120);
+  const held=await page.evaluate(()=>({audio:moment37.audio,frame:moment37.engine._web_value(53)}));
+  assert.equal(held.frame,paused.frame);assert.equal(held.audio.position,paused.audio.position);
+  await page.click('#resume');await page.waitForFunction(()=>moment37.audio.status==='playing');
+  const resumed=await page.evaluate(()=>moment37.audio);assert.ok(resumed.offset>=paused.audio.offset);
+  await page.keyboard.press('KeyR');await page.waitForFunction(()=>moment37.engine._web_value(52)<0&&!moment37.audio.activationFrame);
+  const reset=await page.evaluate(()=>moment37.audio);assert.equal(reset.activationFrame,null);assert.equal(reset.position,0);
+  await page.uncheck('#evo-audio');assert.equal(await page.evaluate(()=>moment37.audio.status),'off');
+  await page.locator('#game-volume').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.waitForFunction(()=>moment37.audio.gameVolume<.005);
+  await page.click('#help');await page.screenshot({path:path.join(root,'web/tests/audio-help.png'),fullPage:true});
+  await page.click('#help-close');await page.keyboard.press('KeyR');await page.screenshot({path:path.join(root,'web/tests/audio-controls.png'),fullPage:true});
+  await page.setViewportSize({width:390,height:844});await page.waitForTimeout(80);
+  const mobile=await page.evaluate(()=>({width:document.documentElement.scrollWidth,viewport:innerWidth}));assert.equal(mobile.width,mobile.viewport);
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,cue,paused:paused.audio,resumed,reset,mobile},null,2));
+ }finally{await browser?.close();server.kill();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

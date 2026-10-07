@@ -1,0 +1,11 @@
+{
+  "name": "evo-moment-37",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "start": "python3 web/serve.py",
+    "build": "bash web/build.sh",
+    "test": "node web/tests/smoke.cjs"
+  },
+  "devDependencies": { "@playwright/test": "1.63.0" }
+}

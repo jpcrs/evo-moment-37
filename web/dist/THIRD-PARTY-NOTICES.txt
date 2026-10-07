@@ -1,0 +1,106 @@
+3SX Third-Party Notices
+========================
+
+This product includes third-party software components.
+
+libcdio / libiso9660
+--------------------
+Upstream: https://github.com/libcdio/libcdio
+
+3SX links against:
+- libcdio
+- libiso9660
+
+License: GNU General Public License, version 3 or later (GPLv3+), as provided by the libcdio project.
+
+Copyright:
+- Copyright (C) libcdio contributors.
+
+The source code for libcdio and its license notices are available from the upstream project above.
+
+SDL3
+----
+Upstream: https://github.com/libsdl-org/SDL
+
+3SX links against:
+- SDL3
+
+License: zlib license, as provided by the SDL project.
+
+Copyright:
+- Copyright (C) SDL contributors.
+
+zlib
+----
+Upstream: https://zlib.net
+
+3SX links against:
+- zlib
+
+License: zlib license, as provided by the zlib project.
+
+Copyright:
+- Copyright (C) Jean-loup Gailly and Mark Adler.
+
+GekkoNet
+------
+Upstream: https://github.com/HeatXD/GekkoNet
+
+3SX links against:
+- libGekkoNet
+
+License: BSD 2-Clause, as provided by Jamie Meyer.
+
+Copyright:
+- Copyright (C) Jamie Meyer.
+
+argparse
+------
+Upstream: https://github.com/cofyc/argparse
+
+3SX links against:
+- argparse
+
+License: MIT License, as provided by Yecheng Fu.
+
+Copyright:
+- Copyright (C) Yecheng Fu.
+
+minizip-ng
+------
+Upstream: https://github.com/zlib-ng/minizip-ng
+
+3SX links against:
+- libminizip-ng
+
+License: zlib license, as provided by Nathan Moinvaziri.
+
+Copyright:
+- Copyright (C) Nathan Moinvaziri.
+
+TF-PSA-Crypto
+------
+Upstream: https://github.com/Mbed-TLS/TF-PSA-Crypto
+
+License: Apache-2.0, as provided by Mbed-TLS contributors.
+
+Copyright:
+- Copyright (C) Mbed-TLS contributors.
+
+STB
+------
+Upstream: https://github.com/nothings/stb
+
+License: MIT license, as provided by STB contributors.
+
+Copyright:
+- Copyright (C) STB contributors.
+
+Dear ImGui
+------
+Upstream: https://github.com/ocornut/imgui
+
+License MIT license, as provided by Omar Cornut
+
+Copyright:
+- Copyright (C) Omar Cornut.

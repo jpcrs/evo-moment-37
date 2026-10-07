@@ -1,0 +1,11 @@
+{
+  "source": "https://www.youtube.com/watch?v=JzS96auqau0",
+  "title": "Official Evo Moment #37, Daigo vs Justin Evo 2004 in HD",
+  "channel": "Evo Events",
+  "videoFps": 30,
+  "superActivationVideoFrame": 896,
+  "sourceStartSeconds": 29.866666666666667,
+  "durationSeconds": 16,
+  "sampleRate": 48000,
+  "synchronization": "Clip sample zero is aligned to the first darkened super-activation frame. Playback is anchored to the engine's confirmed Houyoku-sen activation, not the start button or a wall-clock timeout."
+}

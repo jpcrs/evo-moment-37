@@ -1,0 +1,48 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: github-pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      # The native engine is built locally from the ignored ISO and 3SX checkout.
+      # Only the ready-to-play static bundle is needed for Pages.
+      - name: Check deployment files
+        run: |
+          for file in index.html engine.js engine.wasm engine.data app.js audio.js style.css audio/evo-moment37.wav LICENSE-3SX.txt; do
+            test -s "web/dist/$file" || { echo "Missing deployment file: $file" >&2; exit 1; }
+          done
+
+      - name: Configure GitHub Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static game
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: web/dist
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

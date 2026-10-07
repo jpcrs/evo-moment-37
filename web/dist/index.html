@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0c1018">
+  <meta name="description" content="Parry all fifteen kicks and finish the comeback in the original 3rd Strike engine.">
+  <title>Moment 37 — The Daigo Challenge</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c1018'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='22' fill='%23ffac69'%3E37%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="game-shell" id="game" aria-label="Daigo parry challenge">
+  <div class="game-top">
+    <span class="matchup"><i class="dot" aria-hidden="true"></i>Evo Moment #37</span>
+    <div class="parry-progress" id="parry-progress" role="progressbar" aria-label="Parries" aria-valuemin="0" aria-valuemax="15" aria-valuenow="0" aria-valuetext="0 of 15 parries">
+      <span class="parry-count"><strong id="parries">00</strong><span>/ 15 <span class="counter-label">PARRIES</span></span></span>
+      <div id="parry-markers" aria-hidden="true"></div>
+    </div>
+    <div class="top-controls">
+      <label class="volume-control" for="game-volume"><span>Volume</span><input id="game-volume" type="range" min="0" max="100" value="100" step="1" aria-label="Game volume"><output id="game-volume-value" for="game-volume">100%</output></label>
+      <label class="evo-audio-control"><input id="evo-audio" type="checkbox" checked disabled><span>Evo audio</span></label>
+    <button class="help-button" id="help" aria-haspopup="dialog" aria-controls="help-dialog"><span aria-hidden="true">?</span> Help</button>
+    </div>
+  </div>
+  <div class="screen" id="screen">
+    <canvas id="canvas" width="768" height="576" style="visibility:hidden" aria-label="Street Fighter III: 3rd Strike game" tabindex="0"></canvas>
+    <div class="overlay" id="overlay">
+      <p class="eyebrow" id="overlay-tag">THE DAIGO CHALLENGE</p>
+      <h2 id="overlay-title">Loading game</h2>
+      <p id="overlay-copy">Preparing the original game engine and your disc’s resources.</p>
+      <div id="load-track"><div id="load-bar"></div></div>
+      <p id="load-note">Starting WebAssembly…</p>
+      <button class="primary" id="play" disabled>Loading… <span>↗</span></button>
+    </div>
+    <div id="pause-overlay" hidden>
+      <p class="eyebrow">TAKE A BREATH</p><h2>Paused</h2>
+      <button class="primary" id="resume">Back to the moment ↗</button>
+    </div>
+    <dialog id="help-dialog" aria-labelledby="help-title">
+      <div class="help-heading"><div><p class="eyebrow">THE DAIGO CHALLENGE</p><h2 id="help-title">Make the comeback.</h2></div><button id="help-close" aria-label="Close help" autofocus>×</button></div>
+      <p class="help-intro">You’re Ken, on the right, with one health point. Parry all fifteen kicks from Chun-Li’s super, then knock her out. Blocking deals chip damage and will end your attempt.</p>
+      <ol class="instructions">
+        <li><h3>Tap forward. Release. Repeat.</h3><p>Tap <kbd>←</kbd> toward Chun-Li just before each hit. Release between taps; holding forward won’t keep parrying.</p></li>
+        <li><h3>Take the last one airborne.</h3><p>Jump before the final kick, then tap forward in the air to parry it.</p></li>
+        <li><h3>Finish the comeback.</h3><p>Jumping heavy kick → crouching medium kick → Shippu Jinraikyaku. For the super, input <b>↓ ↙ ← ↓ ↙ ← + kick</b>.</p></li>
+      </ol>
+      <div class="controls">
+        <h3>Keyboard</h3>
+        <dl><dt>Move / parry</dt><dd><kbd>←</kbd> <kbd>↓</kbd> <kbd>↑</kbd> <kbd>→</kbd></dd><dt>Light / medium / heavy punch</dt><dd><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd></dd><dt>Light / medium / heavy kick</dt><dd><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dd><dt>Retry / pause</dt><dd><kbd>R</kbd> / <kbd>Esc</kbd></dd><dt>Start / resume</dt><dd><kbd>Enter</kbd></dd></dl>
+        <h3>Controller</h3>
+        <p>D-pad or left stick to move. Xbox <b>X / Y / RB</b> or PlayStation <b>Square / Triangle / R1</b> for punches; Xbox <b>A / B / RT</b> or PlayStation <b>Cross / Circle / R2</b> for kicks. <b>Start / Options</b> starts or pauses; <b>Back / Share</b> retries.</p>
+        <p class="controller-status" id="controller">KEYBOARD READY</p>
+      </div>
+      <div class="help-videos"><a href="https://www.youtube.com/watch?v=JzS96auqau0" target="_blank" rel="noopener noreferrer">Watch Daigo’s Evo Moment #37 <span aria-hidden="true">↗</span></a><a href="https://www.youtube.com/watch?v=jQ_2iIqxH7Y" target="_blank" rel="noopener noreferrer">Bonus <span aria-hidden="true">↗</span></a></div>
+      <p class="help-credits">Built with <a href="https://github.com/crowded-street/3sx" target="_blank" rel="noopener noreferrer">3SX by Crowded Street</a>, based on <a href="https://github.com/crowded-street/3s-decomp" target="_blank" rel="noopener noreferrer">3s-decomp</a>.<br><a href="https://github.com/jpcrs/evo-moment-37" target="_blank" rel="noopener noreferrer">Browser port source</a> · <a href="LICENSE-3SX.txt" target="_blank" rel="noopener noreferrer">AGPL-3.0</a></p>
+      <p class="help-note">Volume adjusts the game audio. Evo audio adds the original recording, starting with Chun-Li’s super.<br>Opening Help pauses an active attempt. Closing it returns you to the game.</p>
+    </dialog>
+  </div>
+  <div class="game-bottom">
+    <span id="phase-label">PREPARING CHALLENGE</span>
+    <span id="attempts">ATTEMPT 01</span>
+    <div class="game-actions"><button id="pause" disabled aria-label="Pause">Ⅱ <span>Pause</span></button><button id="retry" disabled>↻ <span>Retry</span></button><button id="fullscreen" aria-label="Fullscreen">⛶</button></div>
+  </div>
+</main>
+<script src="engine.js"></script><script src="audio.js"></script><script src="app.js"></script>
+</body>
+</html>

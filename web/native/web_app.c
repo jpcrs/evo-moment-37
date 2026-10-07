@@ -1,0 +1,166 @@
+/* Evo Moment 37 scenario adapter. All actions pass through the original pad and command parser. */
+#include "main.h"
+#include "moment_runtime.h"
+#include "sf33rd/Source/Game/rendering/texcash.h"
+#include "sf33rd/Source/Game/stage/bg.h"
+#include "sf33rd/Source/Game/ui/sc_sub.h"
+#include "constants.h"
+#include "platform/netplay/game_state.h"
+#include "platform/video/sdl_generic/sdl_generic_renderer.h"
+#include "port/io/resource.h"
+#include "sf33rd/AcrSDK/common/pad.h"
+#include "sf33rd/AcrSDK/common/mlPAD.h"
+#include "sf33rd/AcrSDK/ps2/ps2PAD.h"
+#include "sf33rd/Source/Game/io/ioconv.h"
+#include "sf33rd/Source/Game/engine/spgauge.h"
+#include "sf33rd/Source/Game/engine/plcnt.h"
+#include "sf33rd/Source/Game/engine/workuser.h"
+#include "sf33rd/Source/Game/effect/effect.h"
+#include "sf33rd/Source/Game/system/work_sys.h"
+#include "sf33rd/Source/Game/ui/count.h"
+#include "sf33rd/Source/Game/engine/vital.h"
+#include "sf33rd/Source/Game/rendering/color3rd.h"
+#include <SDL3/SDL.h>
+#include <emscripten.h>
+#include <string.h>
+extern void web_input(int id,int bits);
+static int phase, boot_frame, run_frame, status;
+static int achieved_parries, end_frames, end_result;
+static int chun_super_frame=-1,audio_frame;
+static GameState checkpoint;
+static unsigned char effects[sizeof(frw)];
+static short effect_heads[8],effect_tails[8],effect_queue[EFFECT_MAX],effect_exec[8];
+static short effect_count,effect_min;
+static BG_POS bg_checkpoint[8];
+static FM_POS fm_checkpoint[8];
+static FLPAD pad_checkpoint[2][2];
+static TARPAD target_pad_checkpoint[2];
+static IO io_checkpoint;
+static u16 colors_checkpoint[512][64];
+static u32 interrupt_checkpoint;
+static u16 screen_checkpoint,screen_buffer_checkpoint;
+static BackgroundParameters bg_parameters_checkpoint[8];
+static SAFrame hud_checkpoint[3][48];
+static int saved;
+static SDL_Window* game_window;
+int web_skip_render;
+EMSCRIPTEN_KEEPALIVE void web_render(int enabled) {web_skip_render=!enabled;}
+
+static void frame(void) {
+ Resource_RunServer(); Main_StepFrame(); Main_FinishFrame();
+ int width,height;SDL_GetWindowSizeInPixels(game_window,&width,&height);
+ SDLGenericRenderer_RenderFrame((SDL_Rect){0,0,width,height});
+}
+static void capture(void) {
+ GameState_Save(&checkpoint);
+ memcpy(effects,frw,sizeof(frw)); memcpy(effect_heads,head_ix,sizeof(head_ix));
+ memcpy(effect_tails,tail_ix,sizeof(tail_ix)); memcpy(effect_queue,frwque,sizeof(frwque));
+ memcpy(effect_exec,exec_tm,sizeof(exec_tm));effect_count=frwctr;effect_min=frwctr_min;
+ memcpy(bg_checkpoint,bg_pos,sizeof(bg_pos));memcpy(fm_checkpoint,fm_pos,sizeof(fm_pos));
+ for(int i=0;i<2;i++)memcpy(pad_checkpoint[i],flpad_adr[i],sizeof(pad_checkpoint[i]));
+ memcpy(target_pad_checkpoint,tarpad_root,sizeof(tarpad_root));io_checkpoint=io_w;interrupt_checkpoint=Interrupt_Timer;
+ memcpy(colors_checkpoint,ColorRAM,sizeof(ColorRAM));
+ screen_checkpoint=Screen_Switch;screen_buffer_checkpoint=Screen_Switch_Buffer;
+ memcpy(bg_parameters_checkpoint,bg_prm,sizeof(bg_prm));memcpy(hud_checkpoint,sa_frame,sizeof(sa_frame));
+ saved=1;
+}
+EMSCRIPTEN_KEEPALIVE void web_reset(void) {
+ if(!saved)return;
+ GameState_Load(&checkpoint);
+ memcpy(frw,effects,sizeof(frw));memcpy(head_ix,effect_heads,sizeof(head_ix));
+ memcpy(tail_ix,effect_tails,sizeof(tail_ix));memcpy(frwque,effect_queue,sizeof(frwque));
+ memcpy(exec_tm,effect_exec,sizeof(exec_tm));frwctr=effect_count;frwctr_min=effect_min;
+ memcpy(bg_pos,bg_checkpoint,sizeof(bg_pos));memcpy(fm_pos,fm_checkpoint,sizeof(fm_pos));
+ for(int i=0;i<2;i++)memcpy(flpad_adr[i],pad_checkpoint[i],sizeof(pad_checkpoint[i]));
+ memcpy(tarpad_root,target_pad_checkpoint,sizeof(tarpad_root));io_w=io_checkpoint;Interrupt_Timer=interrupt_checkpoint;
+ memcpy(ColorRAM,colors_checkpoint,sizeof(ColorRAM));
+ Screen_Switch=screen_checkpoint;Screen_Switch_Buffer=screen_buffer_checkpoint;
+ memcpy(bg_prm,bg_parameters_checkpoint,sizeof(bg_prm));memcpy(sa_frame,hud_checkpoint,sizeof(sa_frame));
+ Clear_texcash_work();
+ p1sw_0=p1sw_1=p2sw_0=p2sw_1=p1sw_buff=p2sw_buff=0;
+ web_input(0,0);web_input(1,0);run_frame=0;audio_frame=0;chun_super_frame=-1;achieved_parries=0;end_frames=end_result=0;status=1;
+}
+static void setup_challenge(void) {
+ // Match the subway camera and wide, right-facing approach in the official footage.
+ bg_w.bgw[1].xy[0].cal=bg_w.bgw[1].wxy[0].cal=450<<16;
+ bg_w.bgw[1].chase_xy[0].cal=bg_w.bgw[1].hos_xy[0].cal=450<<16;
+ bg_w.bgw[1].old_pos_x=450;
+ plw[0].wu.xyz[0].cal=576<<16;plw[1].wu.xyz[0].cal=333<<16;
+ plw[0].wu.position_x=plw[0].wu.scr_mv_x=576;plw[1].wu.position_x=plw[1].wu.scr_mv_x=333;
+ plw[0].wu.rl_flag=plw[0].wu.rl_waza=0;plw[1].wu.rl_flag=plw[1].wu.rl_waza=1;
+ plw[0].wu.vital_new=plw[0].wu.vital_old=1;
+ plw[1].wu.vital_new=plw[1].wu.vital_old=55;
+ vit[0].cyerw=vit[0].cred=vit[0].ored=1;vit[0].colnum=3;
+ vit[1].cyerw=vit[1].cred=vit[1].ored=55;vit[1].colnum=2;
+ for(int i=0;i<2;i++) {
+  super_arts[i].store=1;super_arts[i].gauge.i=0;super_arts[i].ok=1;
+  spg_dat[i].spg_level=1;sa_stock_trans(1,0,i);
+ }
+ Counter_hi=26;Counter_low=53;round_timer=26;math_counter_hi=2;math_counter_low=6;
+ Timer_Freeze=0;PL_Wins[0]=PL_Wins[1]=1;
+ Score[0][0]=Score[0][1]=34500;Score[1][0]=Score[1][1]=107000;
+ paring_ctr_vs[1][0]=0;paring_ctr_vs[1][1]=0;
+ cpExitTask(TASK_PAUSE);cpExitTask(TASK_ENTRY);
+ web_input(0,0);web_input(1,0);
+ for(int i=0;i<2;i++)frame();
+ Counter_hi=26;Counter_low=53;round_timer=26;math_counter_hi=2;math_counter_low=6;
+ frame();
+ capture();status=1;
+ SDL_Log("Moment37 ready: %d / %d, SA %d / %d",My_char[0],My_char[1],Super_Arts[0],Super_Arts[1]);
+}
+EMSCRIPTEN_KEEPALIVE int web_init(void) {
+ if(!SDL_Init(SDL_INIT_VIDEO|SDL_INIT_AUDIO|SDL_INIT_GAMEPAD))return 0;
+ game_window=SDLGenericRenderer_Init(&(SDLRenderBackendInitInfo){.app_name="Moment 37",.window_width=768,.window_height=576});
+ if(!game_window)return 0;
+ if(!Resource_Init("/SF33RD.AFS",1024*1024))return 0;
+ Main_Init();phase=0;status=0;return 1;
+}
+EMSCRIPTEN_KEEPALIVE void web_start(void) {if(saved)status=2;}
+EMSCRIPTEN_KEEPALIVE int web_status(void) {return status;}
+EMSCRIPTEN_KEEPALIVE void web_step(int bits) {
+ if(phase<5) {
+  web_input(0,0);web_input(1,0);frame();boot_frame++;
+  if(Moment_Ready()){phase=5;setup_challenge();}
+  return;
+ }
+ if(status!=2)return;
+ if(end_frames) {
+  web_input(0,0);web_input(1,0);frame();audio_frame++;
+  if(--end_frames==0)status=end_result;
+  return;
+ }
+ web_input(0,bits);
+ // Two quarter circles toward Ken, then kick: original Houyoku-sen command.
+ int t=run_frame-90,b=0;
+ if(t>=0&&t<2)b=SWK_DOWN;
+ else if(t<4&&t>=2)b=SWK_DOWN|SWK_RIGHT;
+ else if(t<6&&t>=4)b=SWK_RIGHT;
+ else if(t<8&&t>=6)b=SWK_DOWN;
+ else if(t<10&&t>=8)b=SWK_DOWN|SWK_RIGHT;
+ else if(t<12&&t>=10)b=SWK_RIGHT|SWK_SOUTH;
+ web_input(1,b);frame();run_frame++;audio_frame++;
+ if(chun_super_frame<0&&plw[1].wu.routine_no[1]==4&&plw[1].wu.routine_no[2]==20)chun_super_frame=run_frame-1;
+ if(paring_ctr_vs[1][0]>achieved_parries)achieved_parries=paring_ctr_vs[1][0];
+ if(plw[0].wu.vital_new<0)end_result=3;
+ else if(plw[1].wu.vital_new<0)end_result=achieved_parries>=15?4:3;
+ else if(run_frame>1200)end_result=3;
+ if(end_result)end_frames=72;
+}
+EMSCRIPTEN_KEEPALIVE int web_value(int key) {
+ switch(key) {
+ case 52:return chun_super_frame;case 53:return audio_frame;
+ case 0:return boot_frame;case 1:return phase;case 2:return run_frame;
+ case 3:return plw[0].wu.vital_new;case 4:return plw[1].wu.vital_new;
+ case 5:return achieved_parries;case 6:return plw[0].wu.xyz[0].disp.pos;
+ case 7:return plw[1].wu.xyz[0].disp.pos;case 8:return plw[1].wu.routine_no[1];
+ case 9:return plw[1].wu.cg_ix;case 10:return Allow_a_battle_f;
+ case 11:return C_No[0];case 12:return plw[0].wu.routine_no[1];
+ case 13:return plw[0].wu.xyz[1].disp.pos;case 14:return plw[1].sa->store;
+ case 15:return plw[1].cp->sw_lvbt;case 16:return G_No[1];
+ case 17:return plw[0].wu.rl_flag;case 18:return plw[1].wu.rl_flag;
+ case 19:return My_char[0];case 20:return My_char[1];case 21:return Super_Arts[0];case 22:return Super_Arts[1];case 23:return bg_w.stage;
+ case 24:return Player_Color[0];case 25:return Player_Color[1];
+ case 26:return plw[1].wu.routine_no[2];case 27:return plw[0].wu.routine_no[2];case 28:return plw[1].wu.cg_att_ix;
+ case 46:return bg_w.bgw[1].xy[0].disp.pos;case 47:return plw[0].wu.position_x-bg_w.bgw[1].xy[0].disp.pos+192;case 48:return plw[1].wu.position_x-bg_w.bgw[1].xy[0].disp.pos+192;case 49:return bg_w.bgw[1].r_limit2;case 50:return Screen_Switch;case 51:return bg_w.bgw[1].l_limit2;case 41:return plw[0].sa->store;case 42:return plw[0].sa->ok;case 43:return plw[0].sa->gauge.i;case 44:return plw[0].wu.kind_of_waza;case 45:return plw[0].sa->mp;case 40:return end_result;case 32:return plw[0].cp->waza_flag[3];case 33:return plw[0].cp->waza_flag[4];case 34:return plw[0].wu.dm_stop;case 35:return plw[0].spmv_ng_flag;case 36:return plw[0].wu.rl_waza;case 37:return plw[0].cp->sw_now;case 38:return plw[0].wu.cg_ix;case 39:return plw[1].wu.hit_stop;case 29:return Play_Type;case 30:return paring_ctr_vs[0][0];case 31:return plw[0].cp->sw_lvbt;
+ }return 0;
+}

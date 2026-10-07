@@ -1,0 +1,26 @@
+# Local game source checkout and disc images
+/3sx/
+*.iso
+*.ISO
+*.afs
+*.AFS
+
+# Toolchains, dependencies, and intermediate build files
+/.tools/
+/node_modules/
+/web/build/
+/web/assets/
+__pycache__/
+*.py[cod]
+
+# Local settings, logs, and test output
+.DS_Store
+.env
+.env.*
+!.env.example
+*.log
+/web/tests/*.png
+/test-results/
+/playwright-report/
+
+# web/dist is the deployable game, including engine.js/.wasm/.data.
