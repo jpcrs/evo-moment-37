@@ -74,6 +74,7 @@ function failure(err){console.error(err);overlay.hidden=false;$('overlay-title')
 document.addEventListener('keydown',e=>{
  if(helpDialog.open){if(e.code==='Escape'){e.preventDefault();closeHelp();}return;}
  if(e.target instanceof HTMLInputElement&&e.code!=='Escape')return;
+ if(e.code==='Space'&&ready&&engine._web_status()===2){e.preventDefault();if(!e.repeat)togglePause();return;}
  if(mapping[e.code]){e.preventDefault();keys.add(e.code);}
  if(e.repeat)return;
  if(e.code==='KeyH'){e.preventDefault();openHelp();return;}

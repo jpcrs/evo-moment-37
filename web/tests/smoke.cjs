@@ -29,10 +29,17 @@ const golden=require('./golden-inputs.json');
    const e=moment37.engine,canvas=document.querySelector('#canvas'),gl=canvas.getContext('webgl2');
    function shot(){e._web_reset();e._web_start();e._web_step(0);const bytes=new Uint8Array(canvas.width*canvas.height*4);gl.readPixels(0,0,canvas.width,canvas.height,gl.RGBA,gl.UNSIGNED_BYTE,bytes);let hash=2166136261,nonzero=0;for(const n of bytes){hash=Math.imul(hash^n,16777619);nonzero+=n!==0;}return{hash:hash>>>0,nonzero,screen:e._web_value(50),bytes};}
    const before=shot();for(let i=0;i<1000&&e._web_status()===2;i++)e._web_step(0);
-   const loss=e._web_status(),duringKO=e._web_value(50),after=shot();const identical=before.bytes.length===after.bytes.length&&before.bytes.every((n,i)=>n===after.bytes[i]);delete before.bytes;delete after.bytes;e._web_reset();return{before,after,loss,duringKO,identical};
+   const loss=e._web_status(),duringKO=e._web_value(50),after=shot();const identical=before.bytes.length===after.bytes.length&&before.bytes.every((n,i)=>n===after.bytes[i]);
+   const zoomRetries=[102,110,120,130].map(frame=>{
+    e._web_reset();e._web_start();for(let f=0;f<frame;f++)e._web_step(0);
+    const activation=e._web_value(52),restored=shot();
+    return{frame,activation,hash:restored.hash,identical:before.bytes.every((n,i)=>n===restored.bytes[i])};
+   });
+   delete before.bytes;delete after.bytes;e._web_reset();return{before,after,loss,duringKO,identical,zoomRetries};
   });
   assert.equal(pixels.loss,3);assert.equal(pixels.identical,true);assert.ok(pixels.before.nonzero>100000);
   assert.deepEqual(pixels.after,pixels.before,'Retry must restore the rendered scene, without KO layers or sprites');
+  for(const retry of pixels.zoomRetries){assert.equal(retry.activation,100);assert.equal(retry.identical,true,`Retry during Chun-Li's super at frame ${retry.frame} must restore the camera and rendered scene`);}
   const runs=await page.evaluate(golden=>{
    const e=moment37.engine;e._web_render(0);
    function run(inputs){e._web_reset();e._web_start();let events=[],parry=0,minChunHP=55,arts=[];
@@ -65,9 +72,15 @@ const golden=require('./golden-inputs.json');
   await page.waitForFunction(()=>moment37.engine.SDL3.audioContext.state==='running'&&audioPeak>0,{},{timeout:5000});
   await page.keyboard.down('ArrowLeft');await page.waitForTimeout(120);
   assert.equal(await page.evaluate(()=>moment37.engine._web_value(31)&4),4);
-  await page.keyboard.up('ArrowLeft');await page.keyboard.press('Escape');
+  await page.keyboard.up('ArrowLeft');await page.locator('#pause').focus();await page.keyboard.down('Space');
+  await page.waitForFunction(()=>moment37.state.paused);
+  await page.keyboard.down('Space'); // Holding Space must not toggle again on key repeat.
   const pausedFrame=await page.evaluate(()=>moment37.engine._web_value(2));await page.waitForTimeout(100);
   assert.equal(await page.evaluate(()=>moment37.engine._web_value(2)),pausedFrame);
+  await page.keyboard.up('Space');assert.equal(await page.evaluate(()=>moment37.state.paused),true);
+  await page.keyboard.press('Space');await page.waitForFunction(()=>!moment37.state.paused);
+  await page.waitForFunction(frame=>moment37.engine._web_value(2)>frame,pausedFrame);
+  await page.keyboard.press('Escape');await page.waitForFunction(()=>moment37.state.paused);
   await page.keyboard.press('KeyR');
   await page.evaluate(()=>{window.testPad={connected:true,mapping:'standard',axes:[0,0],buttons:Array.from({length:17},(_,i)=>({pressed:i===14,value:i===14?1:0}))};});
   await page.waitForTimeout(100);

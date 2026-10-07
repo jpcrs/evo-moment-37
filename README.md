@@ -18,7 +18,7 @@ Open **http://localhost:3737** in a browser with WebGL 2. Click **Start challeng
 | Light / medium / heavy punch | Z / X / C | X / Y / RB · Square / Triangle / R1 |
 | Light / medium / heavy kick | A / S / D | A / B / RT · Cross / Circle / R2 |
 | Retry | R | Back / Share |
-| Pause | Escape | Start / Options |
+| Pause / resume | Space or Escape | Start / Options |
 
 Ken starts on the right, facing Chun-Li on the left. Tap **left**, then release, for each parry. Jump before the last kick and tap forward in the air. Counter with jumping heavy kick, crouching medium kick, then two quarter circles forward plus kick for Shippu Jinraikyaku. Ken wins only after all fifteen parries and an actual engine-calculated knockout. The game also supports ordinary movement, attacks and super commands; there is no automatic parry or combo button.
 
@@ -34,7 +34,7 @@ The changes are outside that checkout:
 
 - `web/native/webgl_renderer.c` and shaders adapt the desktop OpenGL renderer to WebGL 2, retaining the original indexed textures, palettes and draw commands.
 - `web/native/web_support.c` supplies browser input and host services in place of desktop configuration, filesystem discovery and controller discovery.
-- `web/native/web_app.c` selects the fixed matchup, initializes the challenge state, supplies Chun-Li's two quarter circles plus kick through the original pad interface, and restores the original engine state on retry. Resets also restore effects, background state, background-layer switches, HUD tiles, palettes and pad history, and invalidate the renderer’s texture cache. A pixel comparison verifies the same rendered scene after a KO and retry.
+- `web/native/web_app.c` selects the fixed matchup, initializes the challenge state, supplies Chun-Li's two quarter circles plus kick through the original pad interface, and restores the original engine state on retry. Resets also restore effects, background state, background-layer switches, HUD tiles, palettes and pad history, recompute the renderer's scale from the saved camera zoom, and invalidate the renderer’s texture cache. Pixel comparisons verify the same rendered scene after a KO and when retry interrupts Chun-Li's super zoom.
 - `web/native/moment_runtime.c` initializes only Ken, Chun-Li and their stage. `web/specialize.py` copies the original frame loop verbatim and restricts character, stage and sound-bank dispatch tables to this scene. The title/menu/selection routes are absent from the linked module; `web/audit_build.py` checks the linker symbol map and resource manifest.
 - `web/prepare_assets.py` reads the supplied ISO9660 disc and repacks the required AFS entries. Resource numbers and every included resource's contents remain unchanged. `web/assets/manifest.json` records their source offsets, sizes and SHA-256 hashes.
 

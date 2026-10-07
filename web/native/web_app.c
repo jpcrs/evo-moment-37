@@ -67,6 +67,8 @@ static void capture(void) {
 EMSCRIPTEN_KEEPALIVE void web_reset(void) {
  if(!saved)return;
  GameState_Load(&checkpoint);
+ // The saved zoom value does not include the renderer's cached scale.
+ Zoom_Value_Set(checkpoint.zoom_add);
  memcpy(frw,effects,sizeof(frw));memcpy(head_ix,effect_heads,sizeof(head_ix));
  memcpy(tail_ix,effect_tails,sizeof(tail_ix));memcpy(frwque,effect_queue,sizeof(frwque));
  memcpy(exec_tm,effect_exec,sizeof(exec_tm));frwctr=effect_count;frwctr_min=effect_min;
