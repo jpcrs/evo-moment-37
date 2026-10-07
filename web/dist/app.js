@@ -56,10 +56,10 @@ function closeHelp(){
 function update(){
  const status=engine._web_status(),count=engine._web_value(5);
  if(count!==lastParries){lastParries=count;$('parries').textContent=String(count).padStart(2,'0');Array.from($('parry-markers').children).forEach((el,i)=>el.classList.toggle('done',i<count));$('parry-progress').setAttribute('aria-valuenow',count);$('parry-progress').setAttribute('aria-valuetext',`${count} of 15 parries`);}
- if(status===lastStatus)return;lastStatus=status;
+ if(status===lastStatus)return;lastStatus=status;overlay.classList.toggle('is-win',status===4);
  if(status===1){$('evo-volume').disabled=false;canvas.style.visibility='visible';ready=true;play.disabled=false;play.innerHTML='Start challenge <span>↗</span>';$('overlay-title').textContent='Evo Moment #37';$('overlay-copy').textContent="Try to replicate Daigo’s Evo Moment #37.";$('load-track').hidden=true;$('load-note').hidden=true;$('retry').disabled=false;$('pause').disabled=false;$('phase-label').textContent='READY · PRESS ENTER TO BEGIN';}
  if(status===2){$('phase-label').textContent='SURVIVE THE SUPER · FINISH THE COMEBACK';}
- if(status===3||status===4){overlay.hidden=false;$('overlay-tag').textContent=status===4?'THE COMEBACK':'ONE HIT WAS ALL IT TOOK';$('overlay-title').textContent=status===4?'You made the moment.':'Run it back.';$('overlay-copy').textContent=status===4?'Chun-Li is down. The comeback is yours.':engine._web_value(3)<0?`${count} parries. Tap forward just before impact, and release between hits.`:engine._web_value(4)<0?'Chun-Li is down, but all fifteen parries are needed to complete the challenge.':'Time is up. Parry all fifteen kicks, then finish the comeback.';play.innerHTML='Try again <span>↻</span>';$('phase-label').textContent=status===4?'CHALLENGE COMPLETE':'K.O. · PRESS R TO RETRY';}
+ if(status===3||status===4){overlay.hidden=false;$('overlay-tag').textContent='ONE HIT WAS ALL IT TOOK';$('overlay-title').textContent=status===4?'Thank you for playing. <3':'Run it back.';$('overlay-copy').textContent=status===4?'':engine._web_value(3)<0?`${count} parries. Tap forward just before impact, and release between hits.`:engine._web_value(4)<0?'Chun-Li is down, but all fifteen parries are needed to complete the challenge.':'Time is up. Parry all fifteen kicks, then finish the comeback.';play.innerHTML='Try again <span>↻</span>';$('phase-label').textContent=status===4?'CHALLENGE COMPLETE':'K.O. · PRESS R TO RETRY';}
 }
 function tick(now){
  requestAnimationFrame(tick);if(!engine)return;

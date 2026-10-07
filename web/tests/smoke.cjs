@@ -94,7 +94,7 @@ const golden=require('./golden-inputs.json');
   await page.evaluate(()=>window.testPad=null);
   // Capture the rendered end state, including the browser's win/retry overlay.
   await page.evaluate(golden=>{const e=moment37.engine;e._web_reset();e._web_start();for(let f=0;f<1100&&e._web_status()===2;f++)e._web_step(golden.inputs[f]||0);},golden);
-  await page.waitForFunction(()=>document.querySelector('#overlay-title').textContent==='You made the moment.');
+  await page.waitForFunction(()=>document.querySelector('#overlay-title').textContent==='Thank you for playing. <3');
   await page.screenshot({path:path.join(root,'web/tests/win.png'),fullPage:true});
   assert.deepEqual(errors,[]);
   console.log(JSON.stringify({passed:true,setup,layout,pixels,lose:runs.lose,win:runs.win,controller:'Standard gamepad direction, pause and retry passed',audio:'AudioContext running; nonzero original-engine PCM verified'},null,2));
