@@ -3,7 +3,7 @@ const $ = id => document.getElementById(id);
 const canvas=$('canvas'),overlay=$('overlay'),play=$('play'),helpDialog=$('help-dialog');
 let resumeAfterHelp=false,startPending=false;
 const audioMixer=new MomentAudio({volume:$('game-volume'),volumeValue:$('game-volume-value'),evoVolume:$('evo-volume'),evoValue:$('evo-volume-value')});
-const assistanceGuide=new MomentAssistance({root:$('game'),button:$('assistance'),panel:$('assistance-panel'),track:$('guide-track'),line:$('guide-line'),title:$('guide-next'),hint:$('guide-hint'),legend:$('guide-legend')});
+const assistanceGuide=new MomentAssistance({root:$('game'),button:$('assistance'),panel:$('assistance-panel'),track:$('guide-track'),targets:$('guide-targets'),title:$('guide-next'),hint:$('guide-hint'),legend:$('guide-legend')});
 assistanceGuide.load().then(()=>{$('assistance').disabled=!ready;}).catch(error=>{$('assistance').title=error.message;console.error(error);});
 const keys=new Set(),mapping={ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,KeyZ:16,KeyX:32,KeyC:64,KeyA:256,KeyS:512,KeyD:1024};
 let engine,ready=false,paused=false,attempt=1,lastStatus=-1,lastParries=-1,padRetry=false,padPause=false,padBits=0;

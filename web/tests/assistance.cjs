@@ -39,10 +39,12 @@ for(let f=0;f<=504;f++){
    const e=moment37.engine;e._web_reset();e._web_start();assistanceGuide.reset();assistanceGuide.observe(e);advanceGuideTo(153);
   },golden);
   const alignment=await page.evaluate(()=>{
-   const cue=document.querySelector('[data-cue="dir-153"]'),box=cue.getBoundingClientRect(),line=document.querySelector('#guide-line').getBoundingClientRect();
-   return {frame:moment37.assistance.displayFrame,due:cue.classList.contains('due'),confirmed:cue.classList.contains('confirmed'),error:Math.abs(box.top+box.height/2-line.top-line.height/2)};
+   const cue=document.querySelector('[data-cue="dir-153"]'),box=cue.getBoundingClientRect(),target=document.querySelector('[data-target="forward"]'),goal=target.getBoundingClientRect();
+   return {frame:moment37.assistance.displayFrame,due:cue.classList.contains('due'),confirmed:cue.classList.contains('confirmed'),aligned:target.classList.contains('aligned'),
+    error:Math.max(Math.abs(box.top+box.height/2-goal.top-goal.height/2),Math.abs(box.left+box.width/2-goal.left-goal.width/2),Math.abs(box.width-goal.width),Math.abs(box.height-goal.height))};
   });
-  assert.equal(alignment.frame,153);assert.equal(alignment.due,true);assert.equal(alignment.confirmed,false);assert.ok(alignment.error<.1);
+  assert.equal(alignment.frame,153);assert.equal(alignment.due,true);assert.equal(alignment.confirmed,false);assert.equal(alignment.aligned,true);assert.ok(alignment.error<.1);
+  assert.equal(await page.locator('#guide-line').count(),0,'The line is replaced by symbol targets');
   await page.evaluate(()=>advanceGuideTo(154));assert.equal(await page.locator('[data-cue="dir-153"]').evaluate(el=>el.classList.contains('confirmed')),true);
   await page.evaluate(()=>advanceGuideTo(439));
   assert.equal(await page.locator('[data-cue="dir-439"]').evaluate(el=>el.classList.contains('due')),true);
@@ -66,6 +68,22 @@ for(let f=0;f<=504;f++){
   });
   assert.equal(failure.stopped,154);assert.equal(failure.state.displayFrame,154);assert.ok(failure.engineFrame>154);
   assert.equal(await page.locator('#guide-next').innerText(),'Sequence missed');
+  const targetChecks=await page.evaluate(()=>{
+   const e=moment37.engine;e._web_reset();e._web_start();assistanceGuide.reset();assistanceGuide.observe(e);e._web_render(0);const checks=[];
+   for(let f=0;f<=504;f++){
+    assistanceGuide.render();
+    for(const cue of assistanceGuide.cues.filter(c=>c.frame===f)){
+     const id=cue.lane==='kick'?'kick':(cue.bits===1||cue.bits===2)?'updown':cue.bits===6?'diagonal':'forward';
+     const note=document.querySelector(`[data-cue="${cue.id}"]`),target=document.querySelector(`[data-target="${id}"]`),a=note.getBoundingClientRect(),b=target.getBoundingClientRect();
+     checks.push({frame:f,cue:cue.id,glyph:note.querySelector('.guide-symbol').textContent,targetGlyph:target.querySelector('.guide-symbol').textContent,
+      error:Math.max(Math.abs(a.x+a.width/2-b.x-b.width/2),Math.abs(a.y+a.height/2-b.y-b.height/2),Math.abs(a.width-b.width),Math.abs(a.height-b.height)),aligned:target.classList.contains('aligned')});
+    }
+    e._web_step(reference.inputs[f]||0);assistanceGuide.observe(e);
+   }
+   e._web_render(1);return checks;
+  });
+  assert.equal(targetChecks.length,25);
+  for(const check of targetChecks){assert.equal(check.glyph,check.targetGlyph,check.cue);assert.equal(check.aligned,true,check.cue);assert.ok(check.error<.1,`${check.cue}: ${check.error}`);}
   const runs=await page.evaluate(()=>{
    const e=moment37.engine,result=[];
    for(const enabled of [false,true]){
@@ -123,6 +141,6 @@ for(let f=0;f<=504;f++){
   await live.waitForFunction(()=>moment37.state.status===3);assert.equal(await live.evaluate(()=>moment37.assistance.displayFrame),154);
   await live.keyboard.press('KeyR');await live.waitForFunction(()=>moment37.assistance.frame<30&&!moment37.assistance.failed);
   assert.equal(await live.evaluate(()=>moment37.assistance.enabled),true);await live.close();
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,cues:cues.length,alignment,pausedFrame:paused.frame,failure,runs,layouts},null,2));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,cues:cues.length,alignment,targetChecks,pausedFrame:paused.frame,failure,runs,layouts},null,2));
  }finally{await browser?.close();server.kill();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

@@ -24,9 +24,11 @@ function momentGuideCues(sequence) {
   return cues.sort((a,b)=>a.frame-b.frame);
 }
 
+function momentGuideX(cue) {return cue.lane==='kick'?0.87:(cue.bits===2||cue.bits===1)?0.18:cue.bits===6?0.36:0.54;}
+
 class MomentAssistance {
-  constructor({root,button,panel,track,line,title,hint,legend}) {
-    Object.assign(this,{root,button,panel,track,line,title,hint,legend});
+  constructor({root,button,panel,track,targets,title,hint,legend}) {
+    Object.assign(this,{root,button,panel,track,targets,title,hint,legend});
     this.enabled=false;this.loaded=false;this.cues=[];this.nodes=[];this.width=this.height=0;
     this.snapshot={frame:0,parries:0,status:0};this.stoppedFrame=null;this.flashFrame=-100;this.previousParries=0;this.desynced=false;
     this.keyboard=true;this.paused=false;
@@ -38,6 +40,12 @@ class MomentAssistance {
     if(Math.abs(sequence.fps-MomentTiming.FPS)>1e-6)throw new Error('The input guide uses a different frame rate.');
     this.contacts=sequence.expected_parries;
     this.cues=momentGuideCues(sequence);
+    this.receptors=['updown','diagonal','forward','kick'].map(id=>{
+      const node=document.createElement('div');node.className='guide-receptor';node.dataset.target=id;
+      const symbol=document.createElement('span');symbol.className='guide-symbol';node.append(symbol);
+      const key=document.createElement('small');key.className='guide-key';node.append(key);
+      this.targets.append(node);return node;
+    });
     this.nodes=this.cues.map(cue=>{
       const node=document.createElement('div');node.className=`guide-note ${cue.kind}`;node.dataset.inputFrame=cue.frame;node.dataset.cue=cue.id;
       node.setAttribute('aria-hidden','true');node.hidden=true;
@@ -75,7 +83,7 @@ class MomentAssistance {
     if(!this.enabled)return;
     this.width=this.track.clientWidth;this.height=this.track.clientHeight;
     this.strikeY=this.height*.78;this.pixelsPerFrame=Math.max(1.8,this.strikeY/90);
-    this.line.style.top=`${this.strikeY}px`;
+    this.targets.style.top=`${this.strikeY}px`;
   }
   render({paused=this.paused,controller=!this.keyboard}={}) {
     this.paused=paused;this.keyboard=!controller;
@@ -83,17 +91,34 @@ class MomentAssistance {
     const state=this.snapshot,frame=this.stoppedFrame??state.frame;
     const renderKey=[frame,state.status,state.parries,!!state.failed,!!state.desynced,paused,controller,this.width,this.height,this.flashFrame].join(':');
     if(renderKey===this.lastRenderKey)return;this.lastRenderKey=renderKey;
-    this.track.dataset.frame=frame;this.line.dataset.frame=frame;
-    this.line.classList.toggle('confirmed',state.parries>0&&frame>=this.flashFrame&&frame-this.flashFrame<=8&&!state.failed&&!state.desynced);
+    this.track.dataset.frame=frame;this.targets.dataset.frame=frame;
+    const parryConfirmed=state.parries>0&&frame>=this.flashFrame&&frame-this.flashFrame<=8&&!state.failed&&!state.desynced;
     this.panel.classList.toggle('guide-paused',paused);this.panel.classList.toggle('guide-failed',!!state.failed);
     this.panel.classList.toggle('guide-complete',state.status===4);
     this.panel.classList.toggle('guide-desynced',!!state.desynced);
+    const next=this.cues.find(cue=>cue.frame>=frame),motionPhase=(next?.frame??frame)>=492;
+    const choose=filter=>{const matches=this.cues.filter(filter);return matches.find(c=>c.end>frame)||matches.at(-1);};
+    const targetCues=[
+      motionPhase?choose(c=>c.kind==='motion'&&c.bits===2):choose(c=>c.kind==='jump'),
+      motionPhase?choose(c=>c.kind==='motion'&&c.bits===6):null,
+      motionPhase?choose(c=>c.kind==='motion'&&c.bits===4):choose(c=>c.kind==='parry'),
+      choose(c=>c.lane==='kick')
+    ];
+    this.receptors.forEach((node,i)=>{
+      const cue=targetCues[i];node.hidden=!cue;if(!cue)return;
+      node.className=`guide-receptor ${cue.kind}`;
+      node.style.transform=`translate3d(${momentGuideX(cue)*this.width}px,0,0) translate(-50%,-50%)`;
+      node.querySelector('.guide-symbol').textContent=cue.glyph;
+      node.querySelector('.guide-key').textContent=controller?'':cue.key||'';
+      node.classList.toggle('aligned',this.cues.some(c=>c.frame===frame&&momentGuideX(c)===momentGuideX(cue)));
+      node.classList.toggle('confirmed',i===2&&parryConfirmed);
+    });
     this.cues.forEach((cue,i)=>{
       const y=this.strikeY-(cue.frame-frame)*this.pixelsPerFrame,node=this.nodes[i];
       const visible=y>=-24&&y<=this.height+24&&frame<=cue.end+14;
       node.hidden=!visible;if(!visible)return;
       const motion=cue.kind==='motion';
-      const x=cue.lane==='kick'?0.86:cue.bits===2?0.18:cue.bits===6?0.36:cue.bits===1?0.36:0.56;
+      const x=momentGuideX(cue);
       node.style.transform=`translate3d(${x*this.width}px,${y}px,0) translate(-50%,-50%)`;
       node.style.setProperty('--hold-length',`${(cue.end-cue.frame)*this.pixelsPerFrame}px`);
       node.classList.toggle('due',cue.frame===frame);node.classList.toggle('past',frame>cue.frame);
@@ -102,7 +127,6 @@ class MomentAssistance {
       if(cue.key)node.querySelector('.guide-key').textContent=controller?'':cue.key;
       if(motion)node.title=cue.glyph+' — hold to the next direction';
     });
-    const next=this.cues.find(cue=>cue.frame>=frame);
     this.title.textContent=paused?'Paused':state.status===4?'Challenge complete':state.failed?'Sequence missed':state.desynced?'Rhythm changed':state.status===1?'Ready':next?.name||'Finish the comeback';
     this.hint.textContent=state.failed?'Press R to retry':state.desynced?'Press R to realign the guide':paused?'Resume to continue':state.status===1?'Start the challenge to follow the cues':next?.hint||'Knock out Chun-Li';
     this.legend.textContent=controller?'LK / MK / HK · controller kicks':'LK = A · MK = S · HK = D';
