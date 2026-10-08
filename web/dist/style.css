@@ -202,30 +202,15 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
  .guide-footer small {display:none}
 }
 
-.touch-controls,.mobile-rotate,.touch-help {display:none}
+.touch-controls,.mobile-rotate,.touch-help,.mobile-hud {display:none}
 .touch-controls[hidden],.mobile-rotate[hidden] {display:none!important}
 .touch-mode {width:var(--mobile-width,100vw);height:var(--mobile-height,100dvh);overflow:hidden}
 .touch-mode body {width:var(--mobile-width,100vw);max-width:100%;height:var(--mobile-height,100dvh);min-height:0;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);overflow:hidden;overscroll-behavior:none}
-.touch-mode .game-shell,.touch-mode .game-shell.has-assistance,.touch-mode .game-shell:fullscreen {width:100%;height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:40px minmax(0,1fr) 36px;background:#080c13;overflow:hidden}
+.touch-mode .game-shell,.touch-mode .game-shell.has-assistance,.touch-mode .game-shell:fullscreen {width:100%;height:100%;display:grid;grid-template-columns:minmax(0,1fr);grid-template-rows:minmax(0,1fr);background:#030508;overflow:hidden}
 .touch-mode .game-shell:fullscreen {padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)}
-.touch-mode .game-top {display:flex;min-height:0;padding:0 10px;gap:12px}
-.touch-mode .matchup {font-size:9px}
-.touch-mode .parry-progress {gap:0;justify-content:initial}
-.touch-mode .parry-count strong {font-size:14px}
-.touch-mode #parry-markers,.touch-mode .counter-label {display:none}
-.touch-mode .top-controls {display:flex;justify-content:initial;gap:12px;margin-left:auto}
-.touch-mode .volume-control {gap:5px;font-size:9px}
-.touch-mode .volume-control input {width:48px;height:24px}
-.touch-mode .volume-control output {display:none}
-.touch-mode .assistance-button,.touch-mode .help-button {min-height:36px;padding:0;font-size:10px}
-.touch-mode .game-bottom {display:flex;min-height:0;gap:10px;padding:0 10px;letter-spacing:0}
-.touch-mode #phase-label {font-size:8px;flex:1}
-.touch-mode #attempts {font-size:8px}
-.touch-mode .game-actions {gap:14px}
-.touch-mode .game-actions button {min-width:36px;min-height:34px;padding:0;font-size:17px}
-.touch-mode .game-actions button span {display:none}
+.touch-mode .game-top,.touch-mode .game-bottom {display:none}
 .touch-mode .play-area {position:relative;display:flex;justify-content:center;align-items:center;min-height:0;overflow:hidden;touch-action:none}
-.touch-mode .screen {height:min(100%,calc((var(--mobile-width,100vw) - env(safe-area-inset-left) - env(safe-area-inset-right) - 200px)*.75));width:auto;flex:none;aspect-ratio:4/3}
+.touch-mode .screen {height:min(100%,calc((var(--mobile-width,100vw) - env(safe-area-inset-left) - env(safe-area-inset-right))*.75));border:0;width:auto;flex:none;aspect-ratio:4/3}
 .touch-mode .overlay,.touch-mode #pause-overlay {padding:12px}
 .touch-mode .overlay h2,.touch-mode #pause-overlay h2 {font-size:28px;margin-bottom:6px}
 .touch-mode .eyebrow {font-size:8px;margin-bottom:8px}
@@ -237,13 +222,13 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
 .touch-pad,.touch-attacks {position:absolute;bottom:14px;display:grid;grid-template-columns:repeat(3,var(--touch-key-size));gap:5px;pointer-events:auto;touch-action:none}
 .touch-pad {left:12px}
 .touch-attacks {right:12px}
-.touch-controls button {position:relative;width:var(--touch-key-size);height:var(--touch-key-size);padding:0;display:grid;place-items:center;touch-action:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;border:1px solid #a8deec66;border-radius:12px;background:#142b3dd9;color:#e1f7ff;font:600 24px/1 'DM Sans',sans-serif;box-shadow:0 2px 6px #0004}
+.touch-controls button {position:relative;width:var(--touch-key-size);height:var(--touch-key-size);padding:0;display:grid;place-items:center;touch-action:none;-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;border:1px solid #a8deec66;border-radius:12px;background:#142b3d66;color:#e1f7ff;font:600 24px/1 'DM Sans',sans-serif;box-shadow:0 2px 6px #0004}
 .touch-controls button[aria-pressed=true] {background:#426d7be6;border-color:#a3e7f2;box-shadow:0 0 14px #70c5d34d}
 .touch-controls button small {position:absolute;bottom:3px;font:6px ui-monospace,monospace;letter-spacing:.8px;color:#9bd4e0}
 .touch-pad-center {display:grid;place-items:center;color:#70c5d355;font:24px ui-monospace,monospace}
 .touch-attacks button {font-size:12px;border-radius:50%;border-color:#ffac6980;background:#392b23d9;color:#ffdec5}
 .touch-attacks button[aria-pressed=true] {background:#76503be6;border-color:#ffc998;box-shadow:0 0 14px #ffac694d}
-.touch-mode .assistance-panel {position:absolute;right:12px;top:8px;bottom:calc(clamp(44px,calc(var(--mobile-height,100dvh)*.11),64px)*2 + 32px);width:132px;height:auto;min-height:0;border:1px solid var(--line);pointer-events:none;z-index:4;background:#111923d9}
+.touch-mode .assistance-panel {position:absolute;right:12px;top:60px;bottom:calc(clamp(44px,calc(var(--mobile-height,100dvh)*.11),64px)*2 + 32px);width:132px;height:auto;min-height:0;border:1px solid var(--line);pointer-events:none;z-index:4;background:#111923a6}
 .touch-mode .guide-heading,.touch-mode .guide-footer,.touch-mode .guide-key {display:none}
 .touch-mode .guide-track {margin:0 4px}
 .touch-mode .guide-receptor {outline-width:1px;outline-offset:1px}
@@ -257,14 +242,6 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
 .mobile-rotate p {color:var(--muted);font-size:13px;line-height:1.7}
 .rotate-phone {width:90px;height:48px;border:2px solid var(--cyan);border-radius:9px;display:grid;place-items:center;color:var(--cyan);font-size:29px}
 .touch-mode.mobile-portrait .game-top,.touch-mode.mobile-portrait .play-area,.touch-mode.mobile-portrait .game-bottom {visibility:hidden}
-@media(max-width:620px) {
- .touch-mode .game-top {gap:8px;padding:0 8px}
- .touch-mode .matchup {font-size:8px}
- .touch-mode .top-controls {gap:8px}
- .touch-mode .volume-control input {width:36px}
- .touch-mode .assistance-button,.touch-mode .help-button {gap:4px;font-size:9px}
- .touch-mode .assistance-switch {width:22px}
-}
 @media(max-height:480px) and (min-width:701px) {
  :root {--bars-height:154px;--page-padding:4px}
  .game-top {min-height:118px}
@@ -280,3 +257,29 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
  .guide-footer p {font-size:8px;line-height:1.35;margin:4px 0 0}
  .guide-footer small {display:none}
 }
+
+/* Mobile play uses only the game and transparent input buttons. */
+.touch-mode .mobile-hud {position:absolute;inset:8px 10px auto;z-index:8;display:flex;align-items:flex-start;justify-content:space-between;pointer-events:none}
+.mobile-score {display:flex;flex-direction:column;gap:3px;padding:6px 8px;border-radius:8px;background:#080c1380;color:#e9e6e0;font:11px ui-monospace,monospace;text-shadow:0 1px 3px #000}
+.mobile-score strong {font-size:12px;font-weight:600}
+.mobile-score small {font-size:8px;color:#b5c3ce}
+#mobile-menu-open {width:44px;height:44px;display:grid;place-items:center;border:1px solid #a8deec55;border-radius:10px;background:#080c1380;color:#e9e6e0;font-size:22px;pointer-events:auto}
+#mobile-menu {width:min(380px,calc(var(--mobile-width,100vw) - 32px));max-height:calc(var(--mobile-height,100dvh) - 24px);padding:18px;border:1px solid #394658;border-radius:14px;background:#131a24;color:var(--text);overflow-y:auto;overscroll-behavior:contain}
+#mobile-menu::backdrop {background:#030508b3;backdrop-filter:blur(3px)}
+.mobile-menu-heading {display:flex;justify-content:space-between;align-items:center;gap:16px;margin-bottom:12px}
+.mobile-menu-heading h2 {font:700 26px/1 'Barlow Condensed',sans-serif;margin:0}
+#mobile-menu-close {width:44px;height:44px;margin:-8px -8px -8px 0;background:transparent;color:var(--muted);font-size:26px}
+#mobile-settings .top-controls {display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;white-space:normal}
+#mobile-settings .volume-control {grid-column:1 / -1;display:grid;grid-template-columns:40px 1fr 40px;gap:10px;font-size:12px;min-height:36px}
+#mobile-settings .volume-control input {width:100%;height:28px}
+#mobile-settings .volume-control output {display:block;width:auto;font-size:11px}
+#mobile-settings .help-button,#mobile-settings .assistance-button {min-height:44px;font-size:12px;justify-self:stretch;justify-content:center;padding:0;border:1px solid var(--line);border-radius:8px}
+#mobile-actions {margin-top:14px;border-top:1px solid var(--line);padding-top:14px}
+#mobile-actions .game-actions {display:flex;justify-content:space-evenly;gap:12px}
+#mobile-actions .game-actions button {min-width:80px;min-height:44px;padding:0 8px;border:1px solid var(--line);border-radius:8px}
+#mobile-actions .game-actions button span {display:inline;font-size:12px}
+#mobile-actions #fullscreen {font-size:12px}
+.mobile-install {color:var(--muted);font-size:11px;line-height:1.6;margin:14px 0 0}
+.mobile-install b {color:var(--text);font-weight:600}
+#mobile-menu-back {display:block;width:100%;margin-top:14px;min-height:44px}
+.touch-mode #help-dialog {max-height:calc(var(--mobile-height,100dvh) - 24px);width:min(520px,calc(var(--mobile-width,100vw) - 32px))}

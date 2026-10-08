@@ -57,7 +57,7 @@ const {chromium,webkit,devices}=require('@playwright/test');
    // Changing volumes and retry must keep the graph audible and preserve user choices.
    await page.locator('#game-volume').evaluate(el=>{el.value='35';el.dispatchEvent(new Event('input',{bubbles:true}));});
    await page.locator('#evo-volume').evaluate(el=>{el.value='45';el.dispatchEvent(new Event('input',{bubbles:true}));});
-   await page.tap('#retry');await page.waitForFunction(()=>moment37.state.status===2&&!moment37.state.paused);
+   await page.tap('#mobile-menu-open');await page.tap('#retry');await page.waitForFunction(()=>moment37.state.status===2&&!moment37.state.paused);
    assert.equal(await page.locator('#game-volume').inputValue(),'35');assert.equal(await page.locator('#evo-volume').inputValue(),'45');
    await page.waitForFunction(()=>signalPeak('game')>.001,null,{polling:10,timeout:2000});
    assert.equal(await page.evaluate(()=>moment37.audio.contextState),'running');

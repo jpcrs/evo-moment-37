@@ -4,10 +4,15 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0c1018">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Moment 37">
   <meta name="description" content="Parry all fifteen kicks and finish the comeback in the original 3rd Strike engine.">
   <title>Moment 37 — The Daigo Challenge</title>
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230c1018'/%3E%3Ctext x='16' y='23' text-anchor='middle' font-family='sans-serif' font-weight='900' font-size='22' fill='%23ffac69'%3E37%3C/text%3E%3C/svg%3E">
-  <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="images/app-icon-180.png">
+  <link rel="stylesheet" href="style.css?v=20261008-immersive">
   <link rel="preload" as="image" href="images/win-photo.png" fetchpriority="low">
 </head>
 <body>
@@ -26,6 +31,10 @@
     </div>
   </div>
   <div class="play-area">
+  <div class="mobile-hud" id="mobile-hud">
+    <span class="mobile-score" aria-label="Challenge progress"><strong id="mobile-parries">00 / 15</strong><small id="mobile-attempts">TRY 01</small></span>
+    <button id="mobile-menu-open" type="button" aria-label="Open game menu" aria-haspopup="dialog" aria-controls="mobile-menu">☰</button>
+  </div>
   <div class="screen" id="screen">
     <canvas id="canvas" width="768" height="576" style="visibility:hidden" aria-label="Street Fighter III: 3rd Strike game" tabindex="0"></canvas>
     <div class="overlay" id="overlay">
@@ -54,7 +63,7 @@
         <dl><dt>Move / parry</dt><dd><kbd>←</kbd> <kbd>↓</kbd> <kbd>↑</kbd> <kbd>→</kbd></dd><dt>Light / medium / heavy punch</dt><dd><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd></dd><dt>Light / medium / heavy kick</dt><dd><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dd><dt>Retry</dt><dd><kbd>R</kbd></dd><dt>Pause / resume</dt><dd><kbd>Space</kbd> / <kbd>Esc</kbd></dd><dt>Start / resume</dt><dd><kbd>Enter</kbd></dd></dl>
         <h3>Controller</h3>
         <p>D-pad or left stick to move. Xbox <b>X / Y / RB</b> or PlayStation <b>Square / Triangle / R1</b> for punches; Xbox <b>A / B / RT</b> or PlayStation <b>Cross / Circle / R2</b> for kicks. <b>Start / Options</b> starts or pauses; <b>Back / Share</b> retries.</p>
-        <div class="touch-help"><h3>Touch · landscape</h3><p>Use the left D-pad to move and parry. Tap <b>←</b> and lift your thumb between hits. Slide through <b>↓ ↙ ←</b> for each quarter circle; use the right <b>LK / MK / HK</b> buttons for kicks. You can hold a direction and attack with another finger. Use the bottom bar to pause or retry. Rotating to portrait pauses the attempt.</p></div>
+        <div class="touch-help"><h3>Touch · landscape</h3><p>Use the left D-pad to move and parry. Tap <b>←</b> and lift your thumb between hits. Slide through <b>↓ ↙ ←</b> for each quarter circle; use the right <b>LK / MK / HK</b> buttons for kicks. You can hold a direction and attack with another finger. Open <b>☰</b> for volumes, Assistance, Help and retry; opening the menu pauses the attempt. Rotating to portrait also pauses.</p><p>On iPhone, use Safari’s <b>Share → Add to Home Screen</b>, then launch the game from its icon to remove the browser address bar and tabs.</p></div>
         <p class="controller-status" id="controller">KEYBOARD READY</p>
       </div>
       <div class="help-videos"><a href="https://www.youtube.com/watch?v=JzS96auqau0" target="_blank" rel="noopener noreferrer">Watch Daigo’s Evo Moment #37 <span aria-hidden="true">↗</span></a><a href="https://www.youtube.com/watch?v=jQ_2iIqxH7Y" target="_blank" rel="noopener noreferrer">Bonus <span aria-hidden="true">↗</span></a></div>
@@ -98,8 +107,15 @@
     <div class="game-actions"><button id="pause" disabled aria-label="Pause">Ⅱ <span>Pause</span></button><button id="retry" disabled>↻ <span>Retry</span></button><button id="fullscreen" aria-label="Fullscreen">⛶</button></div>
   </div>
   <div class="mobile-rotate" id="mobile-rotate" role="status" hidden><div class="rotate-phone" aria-hidden="true">↻</div><h2>Turn your phone sideways.</h2><p>The challenge plays in landscape.<br>Rotate to use the touch controls.</p></div>
+  <dialog id="mobile-menu" aria-labelledby="mobile-menu-title">
+    <div class="mobile-menu-heading"><h2 id="mobile-menu-title">Evo Moment #37</h2><button id="mobile-menu-close" type="button" aria-label="Close game menu" autofocus>×</button></div>
+    <div id="mobile-settings"></div>
+    <div id="mobile-actions"></div>
+    <p class="mobile-install" id="mobile-install">For a screen without Safari’s address bar or tabs: <b>Share → Add to Home Screen</b>, then open the game from its icon.</p>
+    <button class="primary" id="mobile-menu-back" type="button">Back to game ↗</button>
+  </dialog>
 </main>
-<script src="engine.js"></script><script src="timing.js"></script><script src="touch.js"></script><script src="audio.js?v=20261008"></script><script src="assistance.js"></script><script src="app.js?v=20261008"></script>
+<script src="engine.js"></script><script src="timing.js"></script><script src="touch.js"></script><script src="audio.js?v=20261008"></script><script src="assistance.js"></script><script src="app.js?v=20261008-immersive"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5d67cce2f8cd4b59bfad0d0880a04b0c"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
