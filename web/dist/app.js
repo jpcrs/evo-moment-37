@@ -3,11 +3,13 @@ const $ = id => document.getElementById(id);
 const canvas=$('canvas'),overlay=$('overlay'),play=$('play'),helpDialog=$('help-dialog');
 let resumeAfterHelp=false,startPending=false;
 const audioMixer=new MomentAudio({volume:$('game-volume'),volumeValue:$('game-volume-value'),evoVolume:$('evo-volume'),evoValue:$('evo-volume-value')});
+const assistanceGuide=new MomentAssistance({root:$('game'),button:$('assistance'),panel:$('assistance-panel'),track:$('guide-track'),line:$('guide-line'),title:$('guide-next'),hint:$('guide-hint'),legend:$('guide-legend')});
+assistanceGuide.load().then(()=>{$('assistance').disabled=!ready;}).catch(error=>{$('assistance').title=error.message;console.error(error);});
 const keys=new Set(),mapping={ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,KeyZ:16,KeyX:32,KeyC:64,KeyA:256,KeyS:512,KeyD:1024};
 let engine,ready=false,paused=false,attempt=1,lastStatus=-1,lastParries=-1,padRetry=false,padPause=false,padBits=0;
 const frameClock=new MomentFrameClock(),keyboardHistory=new MomentButtonHistory(),padHistory=new MomentButtonHistory();
 for(let i=0;i<15;i++)$('parry-markers').append(document.createElement('i'));
-window.moment37={get engine(){return engine;},get state(){return {ready,paused,attempt,status:engine?engine._web_status():0,frameRate:MomentTiming.FPS}},get audio(){return audioMixer.state;}};
+window.moment37={get engine(){return engine;},get state(){return {ready,paused,attempt,status:engine?engine._web_status():0,frameRate:MomentTiming.FPS}},get audio(){return audioMixer.state;},get assistance(){return assistanceGuide.state;}};
 function keyboardBits(){let bits=0;for(const key of keys)bits|=mapping[key]||0;return bits;}
 function resetInputClock(clearKeyboard=true){const now=performance.now();if(clearKeyboard)keys.clear();keyboardHistory.reset(keyboardBits(),now);padHistory.reset(padBits,now);frameClock.reset(now);}
 function input(now){
@@ -26,11 +28,11 @@ function input(now){
 async function start(){
  if(!ready||startPending)return;
  startPending=true;play.disabled=true;
- try{await audioMixer.arm();audioMixer.reset();engine._web_start();overlay.hidden=true;paused=false;$('pause-overlay').hidden=true;$('pause-note').hidden=true;$('pause').innerHTML='Ⅱ <span>Pause</span>';$('pause').setAttribute('aria-label','Pause');resetInputClock();canvas.focus();}
+ try{await audioMixer.arm();audioMixer.reset();assistanceGuide.reset();engine._web_start();assistanceGuide.observe(engine);overlay.hidden=true;paused=false;$('pause-overlay').hidden=true;$('pause-note').hidden=true;$('pause').innerHTML='Ⅱ <span>Pause</span>';$('pause').setAttribute('aria-label','Pause');resetInputClock();canvas.focus();}
  catch(error){$('overlay-copy').textContent=error.message;}
  finally{startPending=false;play.disabled=false;}
 }
-function retry(){if(!ready||startPending)return;audioMixer.reset();attempt++;$('attempts').textContent=`ATTEMPT ${String(attempt).padStart(2,'0')}`;engine._web_reset();lastParries=-1;lastStatus=-1;start();}
+function retry(){if(!ready||startPending)return;audioMixer.reset();attempt++;$('attempts').textContent=`ATTEMPT ${String(attempt).padStart(2,'0')}`;engine._web_reset();assistanceGuide.reset();lastParries=-1;lastStatus=-1;start();}
 function setPaused(value,note=''){
  paused=value;if(paused)audioMixer.pause(engine);else audioMixer.resume(engine);$('pause-overlay').hidden=!paused||helpDialog.open;
  $('pause').innerHTML=paused?'▶ <span>Resume</span>':'Ⅱ <span>Pause</span>';
@@ -55,9 +57,10 @@ function closeHelp(){
 }
 function update(){
  const status=engine._web_status(),count=engine._web_value(5);
+ assistanceGuide.render({paused,controller:!!padBits||$('controller').textContent==='CONTROLLER CONNECTED'});
  if(count!==lastParries){lastParries=count;$('parries').textContent=String(count).padStart(2,'0');Array.from($('parry-markers').children).forEach((el,i)=>el.classList.toggle('done',i<count));$('parry-progress').setAttribute('aria-valuenow',count);$('parry-progress').setAttribute('aria-valuetext',`${count} of 15 parries`);}
  if(status===lastStatus)return;lastStatus=status;overlay.classList.toggle('is-win',status===4);
- if(status===1){$('evo-volume').disabled=false;canvas.style.visibility='visible';ready=true;play.disabled=false;play.innerHTML='Start challenge <span>↗</span>';$('overlay-title').textContent='Evo Moment #37';$('overlay-copy').textContent="Try to replicate Daigo’s Evo Moment #37.";$('load-track').hidden=true;$('load-note').hidden=true;$('retry').disabled=false;$('pause').disabled=false;$('phase-label').textContent='READY · PRESS ENTER TO BEGIN';}
+ if(status===1){$('evo-volume').disabled=false;$('assistance').disabled=!assistanceGuide.loaded;canvas.style.visibility='visible';ready=true;play.disabled=false;play.innerHTML='Start challenge <span>↗</span>';$('overlay-title').textContent='Evo Moment #37';$('overlay-copy').textContent="Try to replicate Daigo’s Evo Moment #37.";$('load-track').hidden=true;$('load-note').hidden=true;$('retry').disabled=false;$('pause').disabled=false;$('phase-label').textContent='READY · PRESS ENTER TO BEGIN';}
  if(status===2){$('phase-label').textContent='SURVIVE THE SUPER · FINISH THE COMEBACK';}
  if(status===3||status===4){
   overlay.hidden=false;$('overlay-tag').textContent='ONE HIT WAS ALL IT TOOK';$('overlay-title').textContent=status===4?'Thank you for playing. <3':'Run it back.';
@@ -70,14 +73,14 @@ function tick(presentationTime){
  requestAnimationFrame(tick);if(!engine)return;
  try{
   const now=performance.now();input(now);
-  if(!ready){for(let i=0;i<8&&engine._web_status()===0;i++)engine._web_step(0);$('load-note').textContent='Setting the stage…';update();return;}
+  if(!ready){for(let i=0;i<8&&engine._web_status()===0;i++)engine._web_step(0);$('load-note').textContent='Setting the stage…';assistanceGuide.observe(engine);update();return;}
   if(!paused&&engine._web_status()===2){
    const frames=frameClock.pending(presentationTime,now);
    if(frames<0){setPaused(true,'The browser missed several frames. Close busy tabs, then press Space to resume.');return;}
    for(let i=0;i<frames&&engine._web_status()===2;i++){
     const at=frameClock.next(),bits=momentCombineButtons(keyboardHistory.sample(at),padHistory.sample(at));
     // Present the newest state; intermediate catch-up frames still run all game logic.
-    engine._web_render(i===frames-1||engine._web_value(40)?1:0);engine._web_step(bits);audioMixer.frame(engine);
+    engine._web_render(i===frames-1||engine._web_value(40)?1:0);engine._web_step(bits);audioMixer.frame(engine);assistanceGuide.observe(engine);
    }
    engine._web_render(1);
   }
@@ -88,6 +91,7 @@ function failure(err){console.error(err);overlay.hidden=false;$('overlay-title')
 document.addEventListener('keydown',e=>{
  if(helpDialog.open){if(e.code==='Escape'){e.preventDefault();closeHelp();}return;}
  if(e.target instanceof HTMLInputElement&&e.code!=='Escape')return;
+ if(e.target===$('assistance')&&(e.code==='Space'||e.code==='Enter')){e.preventDefault();if(!e.repeat)$('assistance').click();return;}
  if(e.code==='Space'&&ready&&engine._web_status()===2){e.preventDefault();if(!e.repeat)togglePause();return;}
  if(mapping[e.code]){e.preventDefault();keys.add(e.code);keyboardHistory.record(keyboardBits(),momentInputTime(e.timeStamp));}
  if(e.repeat)return;
@@ -100,6 +104,7 @@ document.addEventListener('keyup',e=>{keys.delete(e.code);if(mapping[e.code])key
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resumeAfterHelp=false;if(document.hidden&&ready&&!paused&&engine._web_status()===2)togglePause();});
 play.onclick=()=>{if(engine._web_status()>=3)retry();else start();};$('retry').onclick=retry;$('pause').onclick=togglePause;$('resume').onclick=togglePause;
 $('fullscreen').onclick=()=>document.fullscreenElement?document.exitFullscreen():$('game').requestFullscreen();
+$('assistance').onclick=()=>{assistanceGuide.setEnabled(!assistanceGuide.enabled);if(ready)canvas.focus({preventScroll:true});};
 $('evo-volume').addEventListener('input',async()=>{
  if(!ready)return;
  audioMixer.setEvoVolume($('evo-volume').value);

@@ -21,3 +21,4 @@ cp 3sx/THIRD_PARTY_NOTICES.txt web/dist/THIRD-PARTY-NOTICES.txt
 cp .tools/SDL/LICENSE.txt web/dist/LICENSE-SDL.txt
 
 python3 web/audit_build.py
+cp web/tests/golden-inputs.json web/dist/guide-sequence.json

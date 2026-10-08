@@ -22,6 +22,10 @@ Open **http://localhost:3737** in a browser with WebGL 2. Click **Start challeng
 
 Ken starts on the right, facing Chun-Li on the left. Tap **left**, then release, for each parry. Jump before the last kick and tap forward in the air. Counter with jumping heavy kick, crouching medium kick, then two quarter circles forward plus kick for Shippu Jinraikyaku. Ken wins only after all fifteen parries and an actual engine-calculated knockout. The game also supports ordinary movement, attacks and super commands; there is no automatic parry or combo button.
 
+**Assistance** in the header toggles a falling input guide beside the game. Tap as a note reaches the press line; its tail shows how long the reference holds that direction or kick. It includes all fifteen parries, the jump, jumping heavy kick, crouching medium kick and both quarter-circle motions. Kick notes use LK/MK/HK, with A/S/D underneath for keyboard play. The toggle starts off and retains its choice on retry.
+
+The guide reads the native engine's next input-frame index after each simulation step. It uses no wall-clock animation or delayed timers, so pause freezes the notes and retry returns them to the start. Its cue file is copied from the same successful input fixture used by the local macOS macro. The airborne parry is shown at input frame 439, ahead of the actual contact at 445. Green feedback comes from confirmed engine parries. If an attempt misses a required parry, or changed positioning shifts the reference contact rhythm, the guide freezes and asks for a retry. The game continues normally; assistance never supplies inputs or changes combat rules.
+
 The top bar includes independent **Game** and **Evo** volume sliders, both starting at 100%; 0% mutes a track. Starting with Evo above 0% loads a local 16-second PCM clip from the requested Evo Events recording, beginning at its super-activation frame (video frame 896 at 30 fps, 29.8667 seconds). The recording is aligned to the engine’s confirmed Houyoku-sen activation. Playback follows the ratio between the PS2 clock and the original challenge’s 59.59949 Hz recording alignment, preserving synchronization after the clock correction. Pause holds the recording at the game clock; resume restores the matching offset; retry resets it and preserves both volume settings. Help links to the official recording and the requested Bonus video.
 
 The Evo recording stops immediately when a kick hits or is blocked without a parry, when a required kick's active window closes without a parry (including moving out of range), or when Ken takes damage. A failed sequence stays muted until retry. The adapter observes the original engine's attack IDs and confirmed parries; it does not use wall-clock deadlines or change combat calculations. Kicks 5 and 13 naturally miss at the reference spacing and are allowed. After all fifteen parries, the recording can continue through the counterattack and crowd reaction.
@@ -97,6 +101,7 @@ npx playwright install chromium
 npm test
 npm run test:timing
 npm run test:audio
+npm run test:assistance
 python3 web/audit_build.py
 ```
 

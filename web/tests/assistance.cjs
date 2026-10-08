@@ -1,0 +1,128 @@
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const vm=require('node:vm');
+const path=require('node:path');
+const {spawn}=require('node:child_process');
+const {chromium}=require('@playwright/test');
+const golden=require('./golden-inputs.json');
+const reference=JSON.parse(fs.readFileSync('web/dist/guide-sequence.json','utf8'));
+assert.deepEqual(reference,golden,'The guide and external macro must use the same successful sequence');
+const context=vm.createContext({});vm.runInContext(fs.readFileSync('web/dist/assistance.js','utf8'),context);
+context.reference=reference;
+const cues=JSON.parse(vm.runInContext('JSON.stringify(momentGuideCues(reference))',context));
+assert.deepEqual(cues.filter(c=>c.kind==='parry').map(c=>c.frame),[...golden.expected_parries.slice(0,14),439]);
+assert.equal(cues.find(c=>c.ordinal===15).frame,439,'Show the airborne input frame, not the later impact at 445');
+for(let f=0;f<=504;f++){
+ const displayed=cues.filter(c=>c.frame<=f&&f<c.end).reduce((bits,c)=>bits|c.bits,0);
+ assert.equal(displayed,golden.inputs[f]||0,`Notes and hold tails must reproduce every input at frame ${f}`);
+}
+
+(async()=>{
+ const root=path.resolve(__dirname,'../..'),server=spawn('python3',['web/serve.py','--port','3741'],{cwd:root,stdio:['ignore','pipe','pipe']});let browser;
+ try{
+  await new Promise((resolve,reject)=>{server.stdout.once('data',resolve);server.once('error',reject);server.once('exit',code=>reject(new Error(`Server exited: ${code}`)));});
+  browser=await chromium.launch({headless:true,args:['--autoplay-policy=no-user-gesture-required']});
+  const page=await browser.newPage({viewport:{width:1440,height:1100}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
+  await page.addInitScript(()=>{
+   window.controlFrames=false;window.controlledFrames=[];
+   const raf=requestAnimationFrame.bind(window);window.requestAnimationFrame=callback=>controlFrames?(controlledFrames.push(callback),0):raf(callback);
+  });
+  await page.goto('http://127.0.0.1:3741/');await page.waitForFunction(()=>moment37.state.ready&&moment37.assistance.loaded);
+  assert.equal(await page.locator('#assistance').getAttribute('aria-pressed'),'false');assert.equal(await page.locator('#assistance-panel').isVisible(),false);
+  await page.click('#assistance');assert.equal(await page.locator('#assistance-panel').isVisible(),true);
+  assert.equal(await page.evaluate(()=>moment37.engine._web_value(2)),0,'Enabling assistance must not start or advance the game');
+  await page.locator('#evo-volume').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});
+  await page.click('#play');await page.waitForFunction(()=>moment37.state.status===2);
+  await page.evaluate(()=>window.controlFrames=true);await page.waitForFunction(()=>controlledFrames.length>0,null,{polling:10});
+  await page.evaluate(golden=>{
+   window.reference=golden;window.advanceGuideTo=target=>{const e=moment37.engine;while(e._web_value(2)<target&&e._web_status()===2){e._web_step(reference.inputs[e._web_value(2)]||0);assistanceGuide.observe(e);}update();};
+   const e=moment37.engine;e._web_reset();e._web_start();assistanceGuide.reset();assistanceGuide.observe(e);advanceGuideTo(153);
+  },golden);
+  const alignment=await page.evaluate(()=>{
+   const cue=document.querySelector('[data-cue="dir-153"]'),box=cue.getBoundingClientRect(),line=document.querySelector('#guide-line').getBoundingClientRect();
+   return {frame:moment37.assistance.displayFrame,due:cue.classList.contains('due'),confirmed:cue.classList.contains('confirmed'),error:Math.abs(box.top+box.height/2-line.top-line.height/2)};
+  });
+  assert.equal(alignment.frame,153);assert.equal(alignment.due,true);assert.equal(alignment.confirmed,false);assert.ok(alignment.error<.1);
+  await page.evaluate(()=>advanceGuideTo(154));assert.equal(await page.locator('[data-cue="dir-153"]').evaluate(el=>el.classList.contains('confirmed')),true);
+  await page.evaluate(()=>advanceGuideTo(439));
+  assert.equal(await page.locator('[data-cue="dir-439"]').evaluate(el=>el.classList.contains('due')),true);
+  assert.equal(await page.evaluate(()=>moment37.engine._web_value(5)),14);
+  await page.evaluate(()=>advanceGuideTo(440));assert.equal(await page.locator('[data-cue="dir-439"]').evaluate(el=>el.classList.contains('confirmed')),false);
+  await page.evaluate(()=>advanceGuideTo(446));assert.equal(await page.locator('[data-cue="dir-439"]').evaluate(el=>el.classList.contains('confirmed')),true);
+  assert.equal(await page.evaluate(()=>moment37.assistance.desynced),false);
+  await page.evaluate(()=>{setPaused(true);update();});
+  const paused=await page.evaluate(()=>({frame:moment37.assistance.displayFrame,positions:[...document.querySelectorAll('.guide-note')].map(el=>el.style.transform)}));
+  await page.waitForTimeout(120);
+  assert.deepEqual(await page.evaluate(()=>({frame:moment37.assistance.displayFrame,positions:[...document.querySelectorAll('.guide-note')].map(el=>el.style.transform)})),paused);
+  assert.equal(await page.locator('#guide-next').innerText(),'Paused');
+  await page.click('#assistance');await page.click('#assistance');assert.equal(await page.evaluate(()=>moment37.engine._web_value(2)),446,'Toggling assistance does not alter physics or input clocks');
+  await page.keyboard.press('KeyR');await page.waitForFunction(()=>moment37.state.status===2&&moment37.assistance.frame===0,null,{polling:10});
+  assert.equal(await page.locator('#assistance').getAttribute('aria-pressed'),'true','Retry preserves the assistance choice');
+  assert.equal(await page.evaluate(()=>moment37.assistance.parries),0);
+  const failure=await page.evaluate(()=>{
+   const e=moment37.engine;e._web_reset();e._web_start();assistanceGuide.reset();let stopped;
+   for(let f=0;f<250&&e._web_status()===2;f++){e._web_step(0);assistanceGuide.observe(e);if(assistanceGuide.state.failed&&stopped===undefined)stopped=assistanceGuide.state.displayFrame;}
+   update();return{stopped,state:assistanceGuide.state,engineFrame:e._web_value(2)};
+  });
+  assert.equal(failure.stopped,154);assert.equal(failure.state.displayFrame,154);assert.ok(failure.engineFrame>154);
+  assert.equal(await page.locator('#guide-next').innerText(),'Sequence missed');
+  const runs=await page.evaluate(()=>{
+   const e=moment37.engine,result=[];
+   for(const enabled of [false,true]){
+    assistanceGuide.setEnabled(enabled);e._web_reset();e._web_start();assistanceGuide.reset();let events=[],parries=0;
+    for(let f=0;f<1100&&e._web_status()===2;f++){e._web_step(reference.inputs[f]||0);assistanceGuide.observe(e);const p=e._web_value(5);if(p>parries){events.push(f);parries=p;}}
+    update();result.push({enabled,status:e._web_status(),ken:e._web_value(3),chun:e._web_value(4),parries,events,desynced:assistanceGuide.state.desynced});
+   }
+   return result;
+  });
+  for(const run of runs){assert.equal(run.status,4);assert.equal(run.ken,1);assert.equal(run.chun,-1);assert.equal(run.parries,15);assert.deepEqual(run.events,golden.expected_parries);assert.equal(run.desynced,false);}
+  assert.equal(await page.locator('#guide-next').innerText(),'Challenge complete');
+  await page.evaluate(()=>{assistanceGuide.reset();assistanceGuide.observe({_web_value:k=>k===2?150:k===5?1:0,_web_status:()=>2});assistanceGuide.render();});
+  assert.equal(await page.locator('#guide-next').innerText(),'Rhythm changed','Non-reference contact timing must stop misleading future cues');
+  await page.keyboard.press('KeyR');await page.waitForFunction(()=>moment37.state.status===2&&moment37.assistance.frame===0,null,{polling:10});
+  await page.evaluate(()=>{
+   advanceGuideTo(180);
+   assistanceGuide.render({controller:true});
+  });
+  assert.equal(await page.locator('#guide-legend').innerText(),'LK / MK / HK · controller kicks');
+  await page.evaluate(()=>assistanceGuide.render({controller:false}));
+  const frameBeforeToggle=await page.evaluate(()=>moment37.engine._web_value(2));
+  await page.locator('#assistance').focus();await page.keyboard.press('Space');assert.equal(await page.evaluate(()=>moment37.assistance.enabled),false);
+  assert.equal(await page.evaluate(()=>moment37.state.paused),false,'Space on the focused assistance control must only toggle that control');
+  await page.locator('#assistance').focus();await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>moment37.assistance.enabled),true);
+  assert.equal(await page.evaluate(()=>moment37.engine._web_value(2)),frameBeforeToggle);
+  const layouts=[];
+  for(const [width,height] of [[1440,1100],[1366,900],[1024,768],[768,1024],[390,844],[320,640],[1024,450]]){
+   await page.setViewportSize({width,height});await page.waitForTimeout(35);
+   for(const enabled of [false,true]){
+    await page.evaluate(enabled=>assistanceGuide.setEnabled(enabled),enabled);await page.waitForTimeout(35);
+    const layout=await page.evaluate(()=>{
+     const root=document.querySelector('#game').getBoundingClientRect(),screen=document.querySelector('#screen').getBoundingClientRect();
+     return{width:document.documentElement.scrollWidth,viewport:innerWidth,height:document.documentElement.scrollHeight,viewportHeight:innerHeight,ratio:screen.width/screen.height,
+      overflow:[...document.querySelectorAll('.game-top .top-controls > *, .matchup, .parry-progress')].filter(el=>{const r=el.getBoundingClientRect();return r.left<root.left-.5||r.right>root.right+.5;}).map(el=>el.id||el.className)};
+    });
+    assert.equal(layout.width,width,`Horizontal overflow ${width}x${height}, assistance ${enabled}`);
+    assert.ok(layout.height<=height+2,`Vertical overflow ${width}x${height}, assistance ${enabled}: ${layout.height}`);
+    assert.ok(Math.abs(layout.ratio-4/3)<.001);assert.deepEqual(layout.overflow,[]);layouts.push({width,height,enabled});
+   }
+  }
+  await page.setViewportSize({width:1440,height:1100});await page.evaluate(()=>assistanceGuide.setEnabled(true));await page.waitForTimeout(40);
+  await page.screenshot({path:path.join(root,'web/tests/assistance-preview.png'),fullPage:true});
+  await page.evaluate(()=>advanceGuideTo(497));await page.screenshot({path:path.join(root,'web/tests/assistance-combo.png'),fullPage:true});
+  await page.click('#fullscreen');await page.waitForFunction(()=>!!document.fullscreenElement,null,{polling:10});
+  assert.ok(await page.evaluate(()=>{const note=document.querySelector('#assistance-panel').getBoundingClientRect();return note.left>=0&&note.right<=innerWidth+.5&&note.bottom<=innerHeight+.5;}),'Guide must fit inside fullscreen');
+  await page.click('#fullscreen');await page.waitForFunction(()=>!document.fullscreenElement,null,{polling:10});
+  const live=await browser.newPage();live.on('pageerror',e=>errors.push(e.message));
+  await live.goto('http://127.0.0.1:3741/');await live.waitForFunction(()=>moment37.state.ready&&moment37.assistance.loaded);
+  await live.click('#assistance');await live.locator('#evo-volume').evaluate(el=>{el.value='0';el.dispatchEvent(new Event('input',{bubbles:true}));});await live.click('#play');
+  await live.waitForFunction(()=>moment37.engine._web_value(2)>=125&&moment37.engine._web_value(2)<145);
+  const liveFrames=await live.evaluate(()=>({guide:moment37.assistance.frame,engine:moment37.engine._web_value(2)}));
+  assert.equal(liveFrames.guide,liveFrames.engine,'The real browser loop must drive the guide from native frames');
+  await live.waitForFunction(()=>moment37.assistance.failed);
+  assert.equal(await live.evaluate(()=>moment37.assistance.displayFrame),154);
+  await live.waitForFunction(()=>moment37.state.status===3);assert.equal(await live.evaluate(()=>moment37.assistance.displayFrame),154);
+  await live.keyboard.press('KeyR');await live.waitForFunction(()=>moment37.assistance.frame<30&&!moment37.assistance.failed);
+  assert.equal(await live.evaluate(()=>moment37.assistance.enabled),true);await live.close();
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,cues:cues.length,alignment,pausedFrame:paused.frame,failure,runs,layouts},null,2));
+ }finally{await browser?.close();server.kill();}
+})().catch(error=>{console.error(error);process.exitCode=1;});

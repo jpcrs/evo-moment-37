@@ -7,7 +7,8 @@
     "build": "bash web/build.sh",
     "test": "node web/tests/smoke.cjs",
     "test:timing": "node web/tests/timing.cjs",
-    "test:audio": "node web/tests/audio.cjs"
+    "test:audio": "node web/tests/audio.cjs",
+    "test:assistance": "node web/tests/assistance.cjs"
   },
   "devDependencies": { "@playwright/test": "1.63.0" }
 }

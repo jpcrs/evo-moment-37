@@ -21,9 +21,11 @@
     <div class="top-controls">
       <label class="volume-control" for="game-volume"><span>Game</span><input id="game-volume" type="range" min="0" max="100" value="100" step="1" aria-label="Game volume"><output id="game-volume-value" for="game-volume">100%</output></label>
       <label class="volume-control" for="evo-volume"><span>Evo</span><input id="evo-volume" type="range" min="0" max="100" value="100" step="1" aria-label="Evo recording volume" disabled><output id="evo-volume-value" for="evo-volume">100%</output></label>
+      <button class="assistance-button" id="assistance" type="button" aria-pressed="false" aria-expanded="false" aria-controls="assistance-panel" title="Show the input timing guide" disabled><span class="assistance-switch" aria-hidden="true"></span>Assistance</button>
     <button class="help-button" id="help" aria-haspopup="dialog" aria-controls="help-dialog"><span aria-hidden="true">?</span> Help</button>
     </div>
   </div>
+  <div class="play-area">
   <div class="screen" id="screen">
     <canvas id="canvas" width="768" height="576" style="visibility:hidden" aria-label="Street Fighter III: 3rd Strike game" tabindex="0"></canvas>
     <div class="overlay" id="overlay">
@@ -56,8 +58,17 @@
       </div>
       <div class="help-videos"><a href="https://www.youtube.com/watch?v=JzS96auqau0" target="_blank" rel="noopener noreferrer">Watch Daigo’s Evo Moment #37 <span aria-hidden="true">↗</span></a><a href="https://www.youtube.com/watch?v=jQ_2iIqxH7Y" target="_blank" rel="noopener noreferrer">Bonus <span aria-hidden="true">↗</span></a></div>
       <p class="help-credits">Built with <a href="https://github.com/crowded-street/3sx" target="_blank" rel="noopener noreferrer">3SX by Crowded Street</a>, based on <a href="https://github.com/crowded-street/3s-decomp" target="_blank" rel="noopener noreferrer">3s-decomp</a>.<br><a href="https://github.com/jpcrs/evo-moment-37" target="_blank" rel="noopener noreferrer">Browser port source</a> · <a href="LICENSE-3SX.txt" target="_blank" rel="noopener noreferrer">AGPL-3.0</a></p>
-      <p class="help-note">Game and Evo adjust their audio independently; 0% mutes a track. The Evo recording starts with Chun-Li’s super and stops on a failed parry or an escape. Complete all fifteen parries to keep it playing.<br>Opening Help pauses an active attempt. Closing it returns you to the game.</p>
+      <p class="help-note">Assistance shows the successful reference inputs beside the game. Tap as a note reaches the line; its tail shows how long to hold it. Follow the full rhythm, including the jump and counterattack. The guide follows game frames and freezes on pause or a missed sequence. If movement changes the hit rhythm, retry to realign the guide.<br>Game and Evo adjust their audio independently; 0% mutes a track. The Evo recording starts with Chun-Li’s super and stops on a failed parry or an escape. Complete all fifteen parries to keep it playing.<br>Opening Help pauses an active attempt. Closing it returns you to the game.</p>
     </dialog>
+  </div>
+  <aside class="assistance-panel" id="assistance-panel" aria-label="Input assistance" hidden>
+    <div class="guide-heading"><h2>Input guide</h2><p>Meet the line.</p></div>
+    <div class="guide-track" id="guide-track">
+      <div class="guide-lanes" aria-hidden="true"><span>DIRECTION</span><span>KICK</span></div>
+      <div class="guide-line" id="guide-line" aria-hidden="true"><span>PRESS</span></div>
+    </div>
+    <div class="guide-footer"><strong id="guide-next">Ready</strong><p id="guide-hint">Start the challenge to follow the cues</p><small id="guide-legend">LK = A · MK = S · HK = D</small></div>
+  </aside>
   </div>
   <div class="game-bottom">
     <span id="phase-label">PREPARING CHALLENGE</span>
@@ -65,7 +76,7 @@
     <div class="game-actions"><button id="pause" disabled aria-label="Pause">Ⅱ <span>Pause</span></button><button id="retry" disabled>↻ <span>Retry</span></button><button id="fullscreen" aria-label="Fullscreen">⛶</button></div>
   </div>
 </main>
-<script src="engine.js"></script><script src="timing.js"></script><script src="audio.js"></script><script src="app.js"></script>
+<script src="engine.js"></script><script src="timing.js"></script><script src="audio.js"></script><script src="assistance.js"></script><script src="app.js"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5d67cce2f8cd4b59bfad0d0880a04b0c"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>
