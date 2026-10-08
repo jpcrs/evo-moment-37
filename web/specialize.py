@@ -37,6 +37,15 @@ pat=re.sub(r'void \(\*const plxx_extra_attack_table\[\]\)\(PLW\*\) = \{.*?\n\};'
  'void (*const plxx_extra_attack_table[20])(PLW*) = { [11] = pl11_extra_attack, [15] = pl16_extra_attack };',pat,flags=re.S)
 assert '[11] = pl11_extra_attack, [15] = pl16_extra_attack' in pat
 (OUT/'plpat_scene.c').write_text(pat)
+# The challenge has one explicit rule override: a ten-frame forward-tap window.
+# Keep the original hitboxes, defense decisions and parry effects; synchronize
+# their command timer immediately before they examine it, even during freeze.
+hitcheck=(ROOT/'3sx/src/sf33rd/Source/Game/engine/hitcheck.c').read_text()
+hitcheck='#include "moment_runtime.h"\n'+hitcheck
+for name in ('defense_ground_ps2','defense_sky_ps2'):
+    original=function(hitcheck,name)
+    hitcheck=hitcheck.replace(original,original.replace('{','{\n    Moment_ApplyParryWindow(ds);',1))
+(OUT/'hitcheck_scene.c').write_text(hitcheck)
 stage=(ROOT/'3sx/src/sf33rd/Source/Game/stage/tate00.c').read_text()
 stage=re.sub(r'void \(\*ta_move_tbl\[AREA_COUNT\]\)\(\) = \{.*?\n\};',
  'void (*ta_move_tbl[AREA_COUNT])() = { [AREA_3S_KEN] = BG010 };',stage,flags=re.S)

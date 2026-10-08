@@ -1,4 +1,4 @@
-/* Host timing only: the original engine still owns every command and parry window. */
+/* Timestamped input delivery; the native challenge owns the ten-frame parry rule. */
 const MomentTiming=Object.freeze({FPS:60000/1001,FRAME_MS:1001/60,EVO_REFERENCE_FPS:59.59949});
 
 class MomentFrameClock {
@@ -22,10 +22,17 @@ class MomentButtonHistory {
     this.events.push({at:this.last,bits});
   }
   sample(at) {
-    while(this.head<this.events.length&&this.events[this.head].at<=at+1e-6)this.bits=this.events[this.head++].bits;
+    let taps=0,pressed=0,directionPulse=0;
+    while(this.head<this.events.length&&this.events[this.head].at<=at+1e-6){
+      const bits=this.events[this.head++].bits,dir=bits&15;
+      // Keep a fresh forward tap even if keyup arrives before the same tick.
+      if(!(this.bits&15)&&(dir===4||dir===8))taps|=dir<<16;
+      if(dir&&dir!==(this.bits&15))directionPulse=dir;
+      pressed|=(bits&~this.bits)&~15;this.bits=bits;
+    }
     this.sampled=at;
     if(this.head>=32){this.events=this.events.slice(this.head);this.head=0;}
-    return this.bits;
+    return this.bits|pressed|taps|(!(this.bits&15)?directionPulse:0);
   }
 }
 
@@ -38,6 +45,6 @@ function momentInputTime(timestamp,now=performance.now()) {
 
 function momentCombineButtons(keyboard,pad) {
   let bits=keyboard|pad;
-  if((bits&12)===12)bits&=~12;if((bits&3)===3)bits&=~3;
+  if((bits&12)===12)bits&=~(12|(12<<16));if((bits&3)===3)bits&=~3;
   return bits;
 }

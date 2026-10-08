@@ -60,7 +60,7 @@ const golden=require('./golden-inputs.json');
     }
     return{firstStop,events,naturalMisses,hp:e._web_value(3),parries:e._web_value(5),gameStatus:e._web_status(),failed:e._web_value(54),audio:audioMixer.state.status};
    }
-   const missing={...golden.inputs};delete missing[245];
+   const missing={...golden.inputs};delete missing[golden.expected_parries[5]-4];
    const escape=Object.fromEntries(Array.from({length:80},(_,f)=>[f,8]));
    const parriesOnly=Object.fromEntries(Object.entries(golden.inputs).filter(([f])=>Number(f)<=445));
    const results={success:run(golden.inputs),allParries:run(parriesOnly,480),mistake:run({}),lateMistake:run(missing),escape:run(escape)};

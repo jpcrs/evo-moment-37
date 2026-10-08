@@ -7,6 +7,7 @@
     "build": "bash web/build.sh",
     "test": "node web/tests/smoke.cjs",
     "test:timing": "node web/tests/timing.cjs",
+    "test:parry": "node web/tests/parry-windows.cjs",
     "test:audio": "node web/tests/audio.cjs",
     "test:assistance": "node web/tests/assistance.cjs"
   },

@@ -10,9 +10,13 @@ assert.deepEqual(reference,golden,'The guide and external macro must use the sam
 const context=vm.createContext({});vm.runInContext(fs.readFileSync('web/dist/assistance.js','utf8'),context);
 context.reference=reference;
 const cues=JSON.parse(vm.runInContext('JSON.stringify(momentGuideCues(reference))',context));
-assert.deepEqual(cues.filter(c=>c.kind==='parry').map(c=>c.frame),[...golden.expected_parries.slice(0,14),439]);
-assert.equal(cues.find(c=>c.ordinal===15).frame,439,'Show the airborne input frame, not the later impact at 445');
-for(let f=0;f<=504;f++){
+assert.deepEqual(cues.filter(c=>c.kind==='parry').map(c=>c.frame),golden.expected_parries.map(f=>f-4));
+assert.equal(cues.find(c=>c.ordinal===15).frame,441,'Place the airborne input near the middle of its ten-frame window');
+for(const cue of cues.filter(c=>c.kind==='parry')){
+ assert.equal(cue.windowEnd-cue.windowStart,10);
+ assert.equal(cue.frame-cue.windowStart,5,'Aim near the middle of the valid window');
+}
+for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
  const displayed=cues.filter(c=>c.frame<=f&&f<c.end).reduce((bits,c)=>bits|c.bits,0);
  assert.equal(displayed,golden.inputs[f]||0,`Notes and hold tails must reproduce every input at frame ${f}`);
 }
@@ -36,21 +40,30 @@ for(let f=0;f<=504;f++){
   await page.evaluate(()=>window.controlFrames=true);await page.waitForFunction(()=>controlledFrames.length>0,null,{polling:10});
   await page.evaluate(golden=>{
    window.reference=golden;window.advanceGuideTo=target=>{const e=moment37.engine;while(e._web_value(2)<target&&e._web_status()===2){e._web_step(reference.inputs[e._web_value(2)]||0);assistanceGuide.observe(e);}update();};
-   const e=moment37.engine;e._web_reset();e._web_start();assistanceGuide.reset();assistanceGuide.observe(e);advanceGuideTo(153);
+   const e=moment37.engine;e._web_reset();e._web_start();assistanceGuide.reset();assistanceGuide.observe(e);advanceGuideTo(149);
   },golden);
   const alignment=await page.evaluate(()=>{
-   const cue=document.querySelector('[data-cue="dir-153"]'),box=cue.getBoundingClientRect(),target=document.querySelector('[data-target="forward"]'),goal=target.getBoundingClientRect();
+   const cue=document.querySelector('[data-cue="dir-149"]'),box=cue.getBoundingClientRect(),target=document.querySelector('[data-target="forward"]'),goal=target.getBoundingClientRect();
    return {frame:moment37.assistance.displayFrame,due:cue.classList.contains('due'),confirmed:cue.classList.contains('confirmed'),aligned:target.classList.contains('aligned'),
     error:Math.max(Math.abs(box.top+box.height/2-goal.top-goal.height/2),Math.abs(box.left+box.width/2-goal.left-goal.width/2),Math.abs(box.width-goal.width),Math.abs(box.height-goal.height))};
   });
-  assert.equal(alignment.frame,153);assert.equal(alignment.due,true);assert.equal(alignment.confirmed,false);assert.equal(alignment.aligned,true);assert.ok(alignment.error<.1);
+  assert.equal(alignment.frame,149);assert.equal(alignment.due,true);assert.equal(alignment.confirmed,false);assert.equal(alignment.aligned,true);assert.ok(alignment.error<.1);
   assert.equal(await page.locator('#guide-line').count(),0,'The line is replaced by symbol targets');
-  await page.evaluate(()=>advanceGuideTo(154));assert.equal(await page.locator('[data-cue="dir-153"]').evaluate(el=>el.classList.contains('confirmed')),true);
-  await page.evaluate(()=>advanceGuideTo(439));
-  assert.equal(await page.locator('[data-cue="dir-439"]').evaluate(el=>el.classList.contains('due')),true);
+  const glow=await page.evaluate(()=>{
+   const states=[];
+   for(let frame=143;frame<=154;frame++){
+    assistanceGuide.snapshot={frame,parries:0,status:2};assistanceGuide.stoppedFrame=null;assistanceGuide.render();
+    states.push({frame,open:document.querySelector('[data-target="forward"]').classList.contains('window-open')});
+   }
+   assistanceGuide.observe(moment37.engine);return states;
+  });
+  for(const state of glow)assert.equal(state.open,state.frame>=144&&state.frame<=153,'Glow for all ten valid input frames, and none outside');
+  await page.evaluate(()=>advanceGuideTo(154));assert.equal(await page.locator('[data-cue="dir-149"]').evaluate(el=>el.classList.contains('confirmed')),true);
+  await page.evaluate(()=>advanceGuideTo(441));
+  assert.equal(await page.locator('[data-cue="dir-441"]').evaluate(el=>el.classList.contains('due')),true);
   assert.equal(await page.evaluate(()=>moment37.engine._web_value(5)),14);
-  await page.evaluate(()=>advanceGuideTo(440));assert.equal(await page.locator('[data-cue="dir-439"]').evaluate(el=>el.classList.contains('confirmed')),false);
-  await page.evaluate(()=>advanceGuideTo(446));assert.equal(await page.locator('[data-cue="dir-439"]').evaluate(el=>el.classList.contains('confirmed')),true);
+  await page.evaluate(()=>advanceGuideTo(442));assert.equal(await page.locator('[data-cue="dir-441"]').evaluate(el=>el.classList.contains('confirmed')),false);
+  await page.evaluate(()=>advanceGuideTo(446));assert.equal(await page.locator('[data-cue="dir-441"]').evaluate(el=>el.classList.contains('confirmed')),true);
   assert.equal(await page.evaluate(()=>moment37.assistance.desynced),false);
   await page.evaluate(()=>{setPaused(true);update();});
   const paused=await page.evaluate(()=>({frame:moment37.assistance.displayFrame,positions:[...document.querySelectorAll('.guide-note')].map(el=>el.style.transform)}));
@@ -70,7 +83,7 @@ for(let f=0;f<=504;f++){
   assert.equal(await page.locator('#guide-next').innerText(),'Sequence missed');
   const targetChecks=await page.evaluate(()=>{
    const e=moment37.engine;e._web_reset();e._web_start();assistanceGuide.reset();assistanceGuide.observe(e);e._web_render(0);const checks=[];
-   for(let f=0;f<=504;f++){
+   for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
     assistanceGuide.render();
     for(const cue of assistanceGuide.cues.filter(c=>c.frame===f)){
      const id=cue.lane==='kick'?'kick':(cue.bits===1||cue.bits===2)?'updown':cue.bits===6?'diagonal':'forward';

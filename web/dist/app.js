@@ -11,7 +11,7 @@ const frameClock=new MomentFrameClock(),keyboardHistory=new MomentButtonHistory(
 for(let i=0;i<15;i++)$('parry-markers').append(document.createElement('i'));
 window.moment37={get engine(){return engine;},get state(){return {ready,paused,attempt,status:engine?engine._web_status():0,frameRate:MomentTiming.FPS}},get audio(){return audioMixer.state;},get assistance(){return assistanceGuide.state;}};
 function keyboardBits(){let bits=0;for(const key of keys)bits|=mapping[key]||0;return bits;}
-function resetInputClock(clearKeyboard=true){const now=performance.now();if(clearKeyboard)keys.clear();keyboardHistory.reset(keyboardBits(),now);padHistory.reset(padBits,now);frameClock.reset(now);}
+function resetInputClock(clearKeyboard=true,origin=performance.now()){if(clearKeyboard)keys.clear();keyboardHistory.reset(keyboardBits(),origin);padHistory.reset(padBits,origin);frameClock.reset(origin);frameClock.last=performance.now();}
 function input(now){
  let bits=0,pad=Array.from(navigator.getGamepads?.()||[]).find(p=>p?.connected);
  if(pad){
@@ -25,14 +25,19 @@ function input(now){
   padRetry=down(8);padPause=down(9);
  }else{$('controller').textContent='KEYBOARD READY';padRetry=padPause=false;padBits=0;padHistory.record(0,now);}
 }
-async function start(){
+async function start(origin){
  if(!ready||startPending)return;
  startPending=true;play.disabled=true;
- try{await audioMixer.arm();audioMixer.reset();assistanceGuide.reset();engine._web_start();assistanceGuide.observe(engine);overlay.hidden=true;paused=false;$('pause-overlay').hidden=true;$('pause-note').hidden=true;$('pause').innerHTML='Ⅱ <span>Pause</span>';$('pause').setAttribute('aria-label','Pause');resetInputClock();canvas.focus();}
+ try{
+  const warm=audioMixer.context.state==='running'&&(!audioMixer.enabled||!!audioMixer.buffer);
+  if(!warm)await audioMixer.arm();
+  audioMixer.reset();assistanceGuide.reset();engine._web_start();assistanceGuide.observe(engine);overlay.hidden=true;paused=false;$('pause-overlay').hidden=true;$('pause-note').hidden=true;$('pause').innerHTML='Ⅱ <span>Pause</span>';$('pause').setAttribute('aria-label','Pause');
+  const now=performance.now();resetInputClock(true,warm&&Number.isFinite(origin)&&now-origin<4*MomentTiming.FRAME_MS?origin:now);canvas.focus();
+ }
  catch(error){$('overlay-copy').textContent=error.message;}
  finally{startPending=false;play.disabled=false;}
 }
-function retry(){if(!ready||startPending)return;audioMixer.reset();attempt++;$('attempts').textContent=`ATTEMPT ${String(attempt).padStart(2,'0')}`;engine._web_reset();assistanceGuide.reset();lastParries=-1;lastStatus=-1;start();}
+function retry(origin){if(!ready||startPending)return;audioMixer.reset();attempt++;$('attempts').textContent=`ATTEMPT ${String(attempt).padStart(2,'0')}`;engine._web_reset();assistanceGuide.reset();lastParries=-1;lastStatus=-1;start(origin);}
 function setPaused(value,note=''){
  paused=value;if(paused)audioMixer.pause(engine);else audioMixer.resume(engine);$('pause-overlay').hidden=!paused||helpDialog.open;
  $('pause').innerHTML=paused?'▶ <span>Resume</span>':'Ⅱ <span>Pause</span>';
@@ -96,7 +101,7 @@ document.addEventListener('keydown',e=>{
  if(mapping[e.code]){e.preventDefault();keys.add(e.code);keyboardHistory.record(keyboardBits(),momentInputTime(e.timeStamp));}
  if(e.repeat)return;
  if(e.code==='KeyH'){e.preventDefault();openHelp();return;}
- if(e.code==='KeyR')retry();
+ if(e.code==='KeyR')retry(momentInputTime(e.timeStamp));
  if(e.code==='Escape')togglePause();
  if(e.code==='Enter'&&ready){if(engine._web_status()>=3)retry();else if(engine._web_status()===1)start();else togglePause();}
 });

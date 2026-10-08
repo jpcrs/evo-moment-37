@@ -1,4 +1,4 @@
-/* Evo Moment 37 scenario adapter. All actions pass through the original pad and command parser. */
+/* Evo Moment 37 adapter with a ten-frame forward-tap rule; original combat resolves contacts. */
 #include "main.h"
 #include "moment_runtime.h"
 #include "sf33rd/Source/Game/rendering/texcash.h"
@@ -29,6 +29,8 @@ static int achieved_parries, end_frames, end_result;
 static int chun_super_frame=-1,audio_frame;
 static int evo_failed,evo_kicks,evo_kick_parries,evo_kick_parried;
 static u16 evo_attack_id;
+enum { PARRY_WINDOW=10 };
+static int parry_tap=-1000,parry_air,previous_direction;
 static GameState checkpoint;
 static unsigned char effects[sizeof(frw)];
 static short effect_heads[8],effect_tails[8],effect_queue[EFFECT_MAX],effect_exec[8];
@@ -84,6 +86,27 @@ EMSCRIPTEN_KEEPALIVE void web_reset(void) {
  p1sw_0=p1sw_1=p2sw_0=p2sw_1=p1sw_buff=p2sw_buff=0;
  web_input(0,0);web_input(1,0);run_frame=0;audio_frame=0;chun_super_frame=-1;achieved_parries=0;end_frames=end_result=0;status=1;
  evo_failed=evo_kicks=evo_kick_parries=evo_kick_parried=0;evo_attack_id=0;
+ parry_tap=-1000;parry_air=previous_direction=0;
+}
+// Challenge rule: one fresh forward tap arms ten simulation frames, including
+// super freeze and air parries. The original collision/defense code consumes it.
+static void record_parry_tap(int bits) {
+ int direction=bits&15,forward=plw[0].wu.rl_flag?SWK_RIGHT:SWK_LEFT;
+ int pulse=(bits>>16)&15;
+ if((direction==forward&&previous_direction==0)||pulse==forward) {
+  parry_tap=run_frame;parry_air=plw[0].wu.xyz[1].disp.pos>0;
+ }
+ if(direction&&direction!=forward)parry_tap=-1000;
+ previous_direction=direction;
+}
+void Moment_ApplyParryWindow(PLW* defender) {
+ if(defender!=&plw[0]||status!=2||achieved_parries>=15||
+    plw[1].wu.routine_no[1]!=4||plw[1].wu.routine_no[2]!=20)return;
+ int remaining=PARRY_WINDOW-(run_frame-parry_tap);
+ defender->cp->waza_flag[3]=defender->cp->waza_flag[5]=0;
+ if(remaining>0&&remaining<=PARRY_WINDOW&&
+    parry_air==(defender->wu.xyz[1].disp.pos>0))
+  defender->cp->waza_flag[parry_air?5:3]=remaining;
 }
 static void setup_challenge(void) {
  // Match the subway camera and wide, right-facing approach in the official footage.
@@ -155,7 +178,7 @@ EMSCRIPTEN_KEEPALIVE void web_step(int bits) {
   if(--end_frames==0)status=end_result;
   return;
  }
- web_input(0,bits);
+ record_parry_tap(bits);web_input(0,bits&0xffff);
  // Two quarter circles toward Ken, then kick: original Houyoku-sen command.
  int t=run_frame-90,b=0;
  if(t>=0&&t<2)b=SWK_DOWN;
@@ -167,7 +190,7 @@ EMSCRIPTEN_KEEPALIVE void web_step(int bits) {
  int previous_parries=achieved_parries;
  web_input(1,b);frame();run_frame++;audio_frame++;
  if(chun_super_frame<0&&plw[1].wu.routine_no[1]==4&&plw[1].wu.routine_no[2]==20)chun_super_frame=run_frame-1;
- if(paring_ctr_vs[1][0]>achieved_parries)achieved_parries=paring_ctr_vs[1][0];
+ if(paring_ctr_vs[1][0]>achieved_parries){achieved_parries=paring_ctr_vs[1][0];parry_tap=-1000;}
  if(plw[0].wu.vital_new<0)end_result=3;
  else if(plw[1].wu.vital_new<0)end_result=achieved_parries>=15?4:3;
  else if(run_frame>1200)end_result=3;
@@ -176,6 +199,8 @@ EMSCRIPTEN_KEEPALIVE void web_step(int bits) {
 }
 EMSCRIPTEN_KEEPALIVE int web_value(int key) {
  switch(key) {
+ case 56:return parry_tap>=0&&run_frame-parry_tap<PARRY_WINDOW?PARRY_WINDOW-(run_frame-parry_tap):0;
+ case 57:return parry_tap;case 58:return PARRY_WINDOW;
  case 54:return evo_failed;case 55:return evo_kicks;
  case 52:return chun_super_frame;case 53:return audio_frame;
  case 0:return boot_frame;case 1:return phase;case 2:return run_frame;

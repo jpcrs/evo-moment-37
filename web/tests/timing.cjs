@@ -12,6 +12,7 @@ const context=vm.createContext({performance});
 vm.runInContext(fs.readFileSync('web/dist/timing.js','utf8'),context);
 vm.runInContext('this.Timing=MomentTiming;this.Clock=MomentFrameClock;this.Buttons=MomentButtonHistory;this.inputTime=momentInputTime;',context);
 const {Timing,Clock,Buttons,inputTime}=context;
+const forwardTap=4<<16;
 for(const refresh of [60,120,144,165]){
  const clock=new Clock();clock.reset(0);const ticks=[];
  const present=time=>{const frames=clock.pending(time);assert.ok(frames>=0);for(let i=0;i<frames;i++)ticks.push(clock.next());};
@@ -21,9 +22,16 @@ for(const refresh of [60,120,144,165]){
 }
 const buttons=new Buttons();
 buttons.record(4,10);buttons.record(0,20);buttons.record(4,40);buttons.record(0,48);
-assert.deepEqual([1,2,3].map(f=>buttons.sample(f*Timing.FRAME_MS)),[4,0,0],'A pulse spanning a game tick survives a late display callback; a pulse between ticks receives no extra buffering');
+assert.deepEqual([1,2,3].map(f=>buttons.sample(f*Timing.FRAME_MS)),[4|forwardTap,0,4|forwardTap],'Both spanning and sub-frame forward taps survive a late display callback');
 buttons.reset();buttons.record(4,40);
-assert.deepEqual([1,2,3].map(f=>buttons.sample(f*Timing.FRAME_MS)),[0,0,4],'A new controller snapshot cannot be applied to older catch-up frames');
+assert.deepEqual([1,2,3].map(f=>buttons.sample(f*Timing.FRAME_MS)),[0,0,4|forwardTap],'A new controller snapshot cannot be applied to older catch-up frames');
+buttons.reset();buttons.sample(50);buttons.record(4,40);buttons.record(0,48);
+assert.equal(buttons.sample(67),4|forwardTap,'Late press and release must retain the tap instead of collapsing to neutral');
+assert.equal(buttons.sample(84),0,'A short pulse must last one sample, never become a held button');
+buttons.reset();buttons.record(1,4);buttons.record(0,5);
+assert.equal(buttons.sample(17),1,'A short jump press must survive between ticks');
+buttons.reset();buttons.record(1024,4);buttons.record(0,5);
+assert.equal(buttons.sample(17),1024,'A short attack button press must also survive between ticks');
 buttons.reset(0,100);assert.equal(buttons.sample(120),0,'Retry discards queued input');
 const stalled=new Clock();stalled.reset(0);assert.equal(stalled.pending(100),-1,'A major hitch must pause rather than discard elapsed time');
 const delayed=new Clock(),regular=new Clock();delayed.reset(0);regular.reset(0);
@@ -61,7 +69,7 @@ assert.ok(Math.abs(inputTime(performance.timeOrigin+10,100)-10)<.001);
    controlledFrames.shift()(start);e._web_step=original;
    return{inputs,frame:e._web_value(2)};
   });
-  assert.deepEqual(queued.inputs,[4,0,0]);assert.equal(queued.frame,3);
+  assert.deepEqual(queued.inputs,[4|forwardTap,0,4|forwardTap]);assert.equal(queued.frame,3);
   const controller=await page.evaluate(()=>{
    const e=moment37.engine;e._web_reset();e._web_start();resetInputClock();const now=performance.now();
    frameClock.reset(now-55);keyboardHistory.reset(0,now-55);padHistory.reset(0,now-55);
@@ -69,12 +77,12 @@ assert.ok(Math.abs(inputTime(performance.timeOrigin+10,100)-10)<.001);
    const inputs=[],original=e._web_step;e._web_step=function(bits){inputs.push(bits);return original(bits);};
    controlledFrames.shift()(now);e._web_step=original;window.testPad=null;return inputs;
   });
-  assert.deepEqual(controller,[0,0,4],'The browser must respect the controller snapshot timestamp during catch-up');
+  assert.deepEqual(controller,[0,0,4|forwardTap],'The browser must respect the controller snapshot timestamp during catch-up');
   const refreshRuns=await page.evaluate(golden=>{
    const e=moment37.engine,runs=[];
    for(const refresh of [60,120,144]){
     e._web_reset();e._web_start();const clock=new MomentFrameClock(),history=new MomentButtonHistory();clock.reset(0);
-    for(let f=0;f<=504;f++)history.record(golden.inputs[f]||0,(f+1)*MomentTiming.FRAME_MS-.01);
+    for(let f=0;f<=Math.max(...Object.keys(golden.inputs).map(Number))+1;f++)history.record(golden.inputs[f]||0,(f+1)*MomentTiming.FRAME_MS-.01);
     let displayed=0,parry=0,events=[];
     for(let time=1000/refresh;time<14000&&e._web_status()===2;time+=1000/refresh){
      const frames=clock.pending(time);
@@ -97,6 +105,14 @@ assert.ok(Math.abs(inputTime(performance.timeOrigin+10,100)-10)<.001);
   assert.equal(await page.evaluate(()=>moment37.engine._web_value(2)),0,'The stalled attempt must not fast-forward');
   assert.equal(await page.locator('#pause-note').isVisible(),true);
   await page.keyboard.press('Space');assert.equal(await page.evaluate(()=>moment37.state.paused),false);
+  const synchronousRetry=await page.evaluate(()=>{
+   const arm=audioMixer.arm;let called=false;audioMixer.arm=()=>{called=true;throw new Error('Warm retry must not wait for audio');};
+   const timestamp=performance.now()-2,event=new KeyboardEvent('keydown',{code:'KeyR',bubbles:true});Object.defineProperty(event,'timeStamp',{value:timestamp});
+   document.dispatchEvent(event);audioMixer.arm=arm;
+   return{called,pending:startPending,status:moment37.engine._web_status(),origin:frameClock.origin,timestamp,frame:moment37.engine._web_value(2)};
+  });
+  assert.equal(synchronousRetry.called,false);assert.equal(synchronousRetry.pending,false);assert.equal(synchronousRetry.status,2);assert.equal(synchronousRetry.frame,0);
+  assert.equal(synchronousRetry.origin,synchronousRetry.timestamp,'Warm R retry must anchor immediately to the received event clock');
   const heldAfterPause=await page.evaluate(()=>{
    const e=moment37.engine;document.dispatchEvent(new KeyboardEvent('keydown',{code:'ArrowLeft',bubbles:true,cancelable:true}));
    setPaused(true);setPaused(false);const now=performance.now();frameClock.reset(now-20);
@@ -106,6 +122,6 @@ assert.ok(Math.abs(inputTime(performance.timeOrigin+10,100)-10)<.001);
   assert.deepEqual(heldAfterPause,[4],'Pause/resume must preserve a held key without inventing a release');
   await page.evaluate(()=>{window.controlFrames=false;const callbacks=controlledFrames.splice(0);for(const callback of callbacks)requestAnimationFrame(callback);});
   await page.waitForFunction(()=>moment37.engine._web_value(2)>0);
-  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,frameRate:Timing.FPS,queued,controller,refreshRuns,stallPausesWithoutAdvancing:true,heldAfterPause},null,2));
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,frameRate:Timing.FPS,queued,controller,refreshRuns,stallPausesWithoutAdvancing:true,synchronousRetry,heldAfterPause},null,2));
  }finally{await browser?.close();server.kill();}
 })().catch(error=>{console.error(error);process.exitCode=1;});

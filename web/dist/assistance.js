@@ -2,16 +2,20 @@
 function momentGuideCues(sequence) {
   const directions={1:'↑',2:'↓',4:'←',8:'→',6:'↙',10:'↘',5:'↖',9:'↗'};
   const frames=Object.keys(sequence.inputs).map(Number),last=Math.max(...frames),cues=[];
+  const motionStart=frames.find(f=>(sequence.inputs[f]&512)&&(sequence.inputs[f]&15)===2);
+  const finisher=frames.find(f=>(sequence.inputs[f]&256)&&(sequence.inputs[f]&15)===4);
   let previousDir=0,previousKick=0,parry=0;
   for(let frame=0;frame<=last+1;frame++){
     const bits=sequence.inputs[frame]||0,dir=bits&15,kick=bits&1792;
     if(dir&&dir!==previousDir){
       let end=frame+1;while(end<=last&&(sequence.inputs[end]&15)===dir)end++;
-      const isParry=dir===4&&frame<450,isMotion=frame>=492;
+      const isParry=dir===4&&frame<motionStart,isMotion=frame>=motionStart;
       const ordinal=isParry?++parry:0;
       cues.push({id:`dir-${frame}`,frame,end,bits:dir,lane:'direction',glyph:directions[dir]||'↔',kind:isParry?'parry':isMotion?'motion':'jump',ordinal,
-        name:isParry?(ordinal===15?'Air parry':'Parry '+String(ordinal).padStart(2,'0')):frame===492?'Crouching medium kick':frame===502?'Shippu Jinraikyaku':isMotion?'Super motion':'Jump',
-        hint:isParry?'Tap forward, then release':frame===492?'Hold ↓ and tap MK':frame===502?'← + LK':isMotion?'Hold until the next direction':'Tap up'});
+        windowStart:isParry?sequence.expected_parries[ordinal-1]-sequence.parry_window+1:null,
+        windowEnd:isParry?sequence.expected_parries[ordinal-1]+1:null,
+        name:isParry?(ordinal===15?'Air parry':'Parry '+String(ordinal).padStart(2,'0')):frame===motionStart?'Crouching medium kick':frame===finisher?'Shippu Jinraikyaku':isMotion?'Super motion':'Jump',
+        hint:isParry?'Tap forward within the glowing window, then release':frame===motionStart?'Hold ↓ and tap MK':frame===finisher?'← + LK':isMotion?'Hold until the next direction':'Tap up'});
     }
     if(kick&&kick!==previousKick){
       let end=frame+1;while(end<=last&&(sequence.inputs[end]&1792)===kick)end++;
@@ -40,6 +44,7 @@ class MomentAssistance {
     if(Math.abs(sequence.fps-MomentTiming.FPS)>1e-6)throw new Error('The input guide uses a different frame rate.');
     this.contacts=sequence.expected_parries;
     this.cues=momentGuideCues(sequence);
+    this.motionStart=this.cues.find(c=>c.kind==='motion').frame;
     this.receptors=['updown','diagonal','forward','kick'].map(id=>{
       const node=document.createElement('div');node.className='guide-receptor';node.dataset.target=id;
       const symbol=document.createElement('span');symbol.className='guide-symbol';node.append(symbol);
@@ -50,6 +55,7 @@ class MomentAssistance {
       const node=document.createElement('div');node.className=`guide-note ${cue.kind}`;node.dataset.inputFrame=cue.frame;node.dataset.cue=cue.id;
       node.setAttribute('aria-hidden','true');node.hidden=true;
       const tail=document.createElement('i');tail.className='guide-hold';node.append(tail);
+      if(cue.kind==='parry'){const window=document.createElement('i');window.className='guide-window';node.append(window);node.dataset.windowStart=cue.windowStart;node.dataset.windowEnd=cue.windowEnd;}
       const symbol=document.createElement('span');symbol.className='guide-symbol';symbol.textContent=cue.glyph;node.append(symbol);
       if(cue.ordinal){const number=document.createElement('small');number.className='guide-number';number.textContent=cue.ordinal;node.append(number);}
       if(cue.key){const key=document.createElement('small');key.className='guide-key';key.textContent=cue.key;node.append(key);}
@@ -96,7 +102,8 @@ class MomentAssistance {
     this.panel.classList.toggle('guide-paused',paused);this.panel.classList.toggle('guide-failed',!!state.failed);
     this.panel.classList.toggle('guide-complete',state.status===4);
     this.panel.classList.toggle('guide-desynced',!!state.desynced);
-    const next=this.cues.find(cue=>cue.frame>=frame),motionPhase=(next?.frame??frame)>=492;
+    const openWindow=this.cues.find(c=>c.kind==='parry'&&c.ordinal>state.parries&&frame>=c.windowStart&&frame<c.windowEnd);
+    const next=openWindow||this.cues.find(cue=>cue.frame>=frame),motionPhase=(next?.frame??frame)>=this.motionStart;
     const choose=filter=>{const matches=this.cues.filter(filter);return matches.find(c=>c.end>frame)||matches.at(-1);};
     const targetCues=[
       motionPhase?choose(c=>c.kind==='motion'&&c.bits===2):choose(c=>c.kind==='jump'),
@@ -111,6 +118,7 @@ class MomentAssistance {
       node.querySelector('.guide-symbol').textContent=cue.glyph;
       node.querySelector('.guide-key').textContent=controller?'':cue.key||'';
       node.classList.toggle('aligned',this.cues.some(c=>c.frame===frame&&momentGuideX(c)===momentGuideX(cue)));
+      node.classList.toggle('window-open',i===2&&!!openWindow&&!state.failed&&!state.desynced);
       node.classList.toggle('confirmed',i===2&&parryConfirmed);
     });
     this.cues.forEach((cue,i)=>{
@@ -121,6 +129,10 @@ class MomentAssistance {
       const x=momentGuideX(cue);
       node.style.transform=`translate3d(${x*this.width}px,${y}px,0) translate(-50%,-50%)`;
       node.style.setProperty('--hold-length',`${(cue.end-cue.frame)*this.pixelsPerFrame}px`);
+      if(cue.kind==='parry'){
+        node.style.setProperty('--window-length',`${(cue.windowEnd-cue.windowStart)*this.pixelsPerFrame}px`);
+        node.style.setProperty('--window-after',`${(cue.windowEnd-1-cue.frame+.5)*this.pixelsPerFrame}px`);
+      }
       node.classList.toggle('due',cue.frame===frame);node.classList.toggle('past',frame>cue.frame);
       node.classList.toggle('confirmed',cue.ordinal>0&&cue.ordinal<=state.parries);
       node.classList.toggle('missed',!!state.failed&&cue.ordinal===state.parries+1);
