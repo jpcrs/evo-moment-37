@@ -1,6 +1,6 @@
 {
   "description": "Regression input sequence for this reconstructed PS2-engine scenario; not Daigo's historical controller recording.",
-  "fps": 59.59949,
+  "fps": 59.94005994005994,
   "inputs": {
     "153": 4,
     "171": 4,

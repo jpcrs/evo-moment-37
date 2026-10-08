@@ -61,12 +61,12 @@ class MomentAudio {
     if(this.source){const source=this.source;this.source=null;source.onended=null;try{source.stop();}catch{}source.disconnect();}
   }
   position() {
-    return this.source?this.offset+(this.context.currentTime-this.anchor):this.offset;
+    return this.source?this.offset+(this.context.currentTime-this.anchor)*this.source.playbackRate.value:this.offset;
   }
   play(offset) {
     if(!this.buffer||offset>=this.buffer.duration){this.complete=true;this.stop();return;}
     this.stop();this.offset=Math.max(0,offset);this.anchor=this.context.currentTime;
-    const source=this.context.createBufferSource();source.buffer=this.buffer;source.connect(this.evoGain);
+    const source=this.context.createBufferSource();source.buffer=this.buffer;source.playbackRate.value=MomentTiming.FPS/MomentTiming.EVO_REFERENCE_FPS;source.connect(this.evoGain);
     this.source=source;this.starts++;this.status='playing';
     source.onended=()=>{if(this.source===source){this.source=null;source.disconnect();this.complete=true;this.status='ended';}};
     source.start(this.anchor,this.offset);
@@ -79,7 +79,7 @@ class MomentAudio {
     this.suspended=false;
     if(this.buffer&&this.clockStart!==null&&!this.complete)this.play(this.target(engine));
   }
-  target(engine) {return Math.max(0,(engine._web_value(53)-this.clockStart-1)/59.59949);}
+  target(engine) {return Math.max(0,(engine._web_value(53)-this.clockStart-1)/MomentTiming.EVO_REFERENCE_FPS);}
   frame(engine) {
     if(this.suspended||this.complete)return;
     if(engine._web_value(54)||engine._web_status()===3){this.stop();this.complete=true;this.status='stopped';return;}
@@ -91,7 +91,7 @@ class MomentAudio {
     if(!this.source){this.play(this.target(engine));return;}
     this.lastDrift=this.target(engine)-this.position();
     // Correct a browser stall without delaying the game or changing its frame calculations.
-    if(Math.abs(this.lastDrift)>2/59.59949)this.play(this.target(engine));
+    if(Math.abs(this.lastDrift)>2/MomentTiming.EVO_REFERENCE_FPS)this.play(this.target(engine));
   }
   get state() {return {enabled:this.enabled,status:this.status,ready:!!this.buffer,activationFrame:this.clockStart,starts:this.starts,offset:this.offset,position:this.context?this.position():0,lastDrift:this.lastDrift,gameVolume:this.gameGain?.gain.value??1,evoVolume:this.evoGain?.gain.value??Number(this.evoVolume.value)/100};}
 }

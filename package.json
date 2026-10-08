@@ -5,7 +5,9 @@
   "scripts": {
     "start": "python3 web/serve.py",
     "build": "bash web/build.sh",
-    "test": "node web/tests/smoke.cjs"
+    "test": "node web/tests/smoke.cjs",
+    "test:timing": "node web/tests/timing.cjs",
+    "test:audio": "node web/tests/audio.cjs"
   },
   "devDependencies": { "@playwright/test": "1.63.0" }
 }

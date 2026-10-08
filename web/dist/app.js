@@ -4,38 +4,38 @@ const canvas=$('canvas'),overlay=$('overlay'),play=$('play'),helpDialog=$('help-
 let resumeAfterHelp=false,startPending=false;
 const audioMixer=new MomentAudio({volume:$('game-volume'),volumeValue:$('game-volume-value'),evoVolume:$('evo-volume'),evoValue:$('evo-volume-value')});
 const keys=new Set(),mapping={ArrowUp:1,ArrowDown:2,ArrowLeft:4,ArrowRight:8,KeyZ:16,KeyX:32,KeyC:64,KeyA:256,KeyS:512,KeyD:1024};
-let engine,ready=false,paused=false,attempt=1,lastStatus=-1,lastParries=-1,lastTime=0,accumulator=0,padRetry=false,padPause=false;
-const FPS=59.59949,stepMS=1000/FPS;
+let engine,ready=false,paused=false,attempt=1,lastStatus=-1,lastParries=-1,padRetry=false,padPause=false,padBits=0;
+const frameClock=new MomentFrameClock(),keyboardHistory=new MomentButtonHistory(),padHistory=new MomentButtonHistory();
 for(let i=0;i<15;i++)$('parry-markers').append(document.createElement('i'));
-window.moment37={get engine(){return engine;},get state(){return {ready,paused,attempt,status:engine?engine._web_status():0}},get audio(){return audioMixer.state;}};
+window.moment37={get engine(){return engine;},get state(){return {ready,paused,attempt,status:engine?engine._web_status():0,frameRate:MomentTiming.FPS}},get audio(){return audioMixer.state;}};
 function keyboardBits(){let bits=0;for(const key of keys)bits|=mapping[key]||0;return bits;}
-function input(){
- let bits=keyboardBits(),pad=Array.from(navigator.getGamepads?.()||[]).find(p=>p?.connected);
+function resetInputClock(clearKeyboard=true){const now=performance.now();if(clearKeyboard)keys.clear();keyboardHistory.reset(keyboardBits(),now);padHistory.reset(padBits,now);frameClock.reset(now);}
+function input(now){
+ let bits=0,pad=Array.from(navigator.getGamepads?.()||[]).find(p=>p?.connected);
  if(pad){
   $('controller').textContent='CONTROLLER CONNECTED';
   const down=i=>!!pad.buttons[i]?.pressed;
   if(down(12)||pad.axes[1]<-.45)bits|=1;if(down(13)||pad.axes[1]>.45)bits|=2;
   if(down(14)||pad.axes[0]<-.45)bits|=4;if(down(15)||pad.axes[0]>.45)bits|=8;
   for(const [idx,mask] of [[2,16],[3,32],[5,64],[0,256],[1,512],[7,1024]])if(down(idx))bits|=mask;
+  padHistory.record(bits,momentInputTime(pad.timestamp,now));padBits=bits;
   if(!helpDialog.open){if(down(8)&&!padRetry)retry();if(down(9)&&!padPause){if(engine?._web_status()===1)start();else togglePause();}}
   padRetry=down(8);padPause=down(9);
- }else{$('controller').textContent='KEYBOARD READY';padRetry=padPause=false;}
- // Neutralize contradictory directions without changing the game's parry rules.
- if((bits&12)===12)bits&=~12;if((bits&3)===3)bits&=~3;return bits;
+ }else{$('controller').textContent='KEYBOARD READY';padRetry=padPause=false;padBits=0;padHistory.record(0,now);}
 }
 async function start(){
  if(!ready||startPending)return;
  startPending=true;play.disabled=true;
- try{await audioMixer.arm();audioMixer.reset();engine._web_start();overlay.hidden=true;paused=false;$('pause-overlay').hidden=true;$('pause').innerHTML='Ⅱ <span>Pause</span>';$('pause').setAttribute('aria-label','Pause');keys.clear();accumulator=0;lastTime=performance.now();canvas.focus();}
+ try{await audioMixer.arm();audioMixer.reset();engine._web_start();overlay.hidden=true;paused=false;$('pause-overlay').hidden=true;$('pause-note').hidden=true;$('pause').innerHTML='Ⅱ <span>Pause</span>';$('pause').setAttribute('aria-label','Pause');resetInputClock();canvas.focus();}
  catch(error){$('overlay-copy').textContent=error.message;}
  finally{startPending=false;play.disabled=false;}
 }
 function retry(){if(!ready||startPending)return;audioMixer.reset();attempt++;$('attempts').textContent=`ATTEMPT ${String(attempt).padStart(2,'0')}`;engine._web_reset();lastParries=-1;lastStatus=-1;start();}
-function setPaused(value){
+function setPaused(value,note=''){
  paused=value;if(paused)audioMixer.pause(engine);else audioMixer.resume(engine);$('pause-overlay').hidden=!paused||helpDialog.open;
  $('pause').innerHTML=paused?'▶ <span>Resume</span>':'Ⅱ <span>Pause</span>';
  $('pause').setAttribute('aria-label',paused?'Resume':'Pause');
- keys.clear();lastTime=performance.now();accumulator=0;
+ $('pause-note').textContent=note;$('pause-note').hidden=!note;resetInputClock(false);
 }
 function togglePause(){if(ready&&engine._web_status()===2)setPaused(!paused);}
 function openHelp(){
@@ -66,13 +66,22 @@ function update(){
   play.innerHTML='Try again <span>↻</span>';$('phase-label').textContent=status===4?'CHALLENGE COMPLETE':'K.O. · PRESS R TO RETRY';
  }
 }
-function tick(now){
+function tick(presentationTime){
  requestAnimationFrame(tick);if(!engine)return;
  try{
-  const bits=input();
-  if(!ready){for(let i=0;i<8&&engine._web_status()===0;i++)engine._web_step(0);$('load-note').textContent='Setting the stage…';update();lastTime=now;return;}
-  if(!paused&&engine._web_status()===2){accumulator+=Math.min(now-lastTime,stepMS*4);let frames=0;while(accumulator>=stepMS&&frames++<4){engine._web_step(bits);audioMixer.frame(engine);accumulator-=stepMS;}}else accumulator=0;
-  lastTime=now;update();
+  const now=performance.now();input(now);
+  if(!ready){for(let i=0;i<8&&engine._web_status()===0;i++)engine._web_step(0);$('load-note').textContent='Setting the stage…';update();return;}
+  if(!paused&&engine._web_status()===2){
+   const frames=frameClock.pending(presentationTime,now);
+   if(frames<0){setPaused(true,'The browser missed several frames. Close busy tabs, then press Space to resume.');return;}
+   for(let i=0;i<frames&&engine._web_status()===2;i++){
+    const at=frameClock.next(),bits=momentCombineButtons(keyboardHistory.sample(at),padHistory.sample(at));
+    // Present the newest state; intermediate catch-up frames still run all game logic.
+    engine._web_render(i===frames-1||engine._web_value(40)?1:0);engine._web_step(bits);audioMixer.frame(engine);
+   }
+   engine._web_render(1);
+  }
+  update();
  }catch(err){failure(err);engine=null;}
 }
 function failure(err){console.error(err);overlay.hidden=false;$('overlay-title').textContent='The engine couldn’t start';$('overlay-copy').textContent=String(err.message||err);$('load-track').hidden=true;$('load-note').hidden=true;play.disabled=false;play.textContent='Reload';play.onclick=()=>location.reload();}
@@ -80,14 +89,14 @@ document.addEventListener('keydown',e=>{
  if(helpDialog.open){if(e.code==='Escape'){e.preventDefault();closeHelp();}return;}
  if(e.target instanceof HTMLInputElement&&e.code!=='Escape')return;
  if(e.code==='Space'&&ready&&engine._web_status()===2){e.preventDefault();if(!e.repeat)togglePause();return;}
- if(mapping[e.code]){e.preventDefault();keys.add(e.code);}
+ if(mapping[e.code]){e.preventDefault();keys.add(e.code);keyboardHistory.record(keyboardBits(),momentInputTime(e.timeStamp));}
  if(e.repeat)return;
  if(e.code==='KeyH'){e.preventDefault();openHelp();return;}
  if(e.code==='KeyR')retry();
  if(e.code==='Escape')togglePause();
  if(e.code==='Enter'&&ready){if(engine._web_status()>=3)retry();else if(engine._web_status()===1)start();else togglePause();}
 });
-document.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',()=>{resumeAfterHelp=false;keys.clear();if(ready&&!paused&&engine._web_status()===2)togglePause();});
+document.addEventListener('keyup',e=>{keys.delete(e.code);if(mapping[e.code])keyboardHistory.record(keyboardBits(),momentInputTime(e.timeStamp));});window.addEventListener('blur',()=>{resumeAfterHelp=false;resetInputClock();if(ready&&!paused&&engine._web_status()===2)togglePause();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden)resumeAfterHelp=false;if(document.hidden&&ready&&!paused&&engine._web_status()===2)togglePause();});
 play.onclick=()=>{if(engine._web_status()>=3)retry();else start();};$('retry').onclick=retry;$('pause').onclick=togglePause;$('resume').onclick=togglePause;
 $('fullscreen').onclick=()=>document.fullscreenElement?document.exitFullscreen():$('game').requestFullscreen();

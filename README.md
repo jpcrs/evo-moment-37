@@ -22,15 +22,17 @@ Open **http://localhost:3737** in a browser with WebGL 2. Click **Start challeng
 
 Ken starts on the right, facing Chun-Li on the left. Tap **left**, then release, for each parry. Jump before the last kick and tap forward in the air. Counter with jumping heavy kick, crouching medium kick, then two quarter circles forward plus kick for Shippu Jinraikyaku. Ken wins only after all fifteen parries and an actual engine-calculated knockout. The game also supports ordinary movement, attacks and super commands; there is no automatic parry or combo button.
 
-The top bar includes independent **Game** and **Evo** volume sliders, both starting at 100%; 0% mutes a track. Starting with Evo above 0% loads a local 16-second PCM clip from the requested Evo Events recording, beginning at its super-activation frame (video frame 896 at 30 fps, 29.8667 seconds). The recording is aligned to the engine’s confirmed Houyoku-sen activation. Pause holds the recording at the game clock; resume restores the matching offset; retry resets it and preserves both volume settings. Help links to the official recording and the requested Bonus video.
+The top bar includes independent **Game** and **Evo** volume sliders, both starting at 100%; 0% mutes a track. Starting with Evo above 0% loads a local 16-second PCM clip from the requested Evo Events recording, beginning at its super-activation frame (video frame 896 at 30 fps, 29.8667 seconds). The recording is aligned to the engine’s confirmed Houyoku-sen activation. Playback follows the ratio between the PS2 clock and the original challenge’s 59.59949 Hz recording alignment, preserving synchronization after the clock correction. Pause holds the recording at the game clock; resume restores the matching offset; retry resets it and preserves both volume settings. Help links to the official recording and the requested Bonus video.
 
 The Evo recording stops immediately when a kick hits or is blocked without a parry, when a required kick's active window closes without a parry (including moving out of range), or when Ken takes damage. A failed sequence stays muted until retry. The adapter observes the original engine's attack IDs and confirmed parries; it does not use wall-clock deadlines or change combat calculations. Kicks 5 and 13 naturally miss at the reference spacing and are allowed. After all fifteen parries, the recording can continue through the counterattack and crowd reaction.
 
-The server binds to your own computer. It uses no account or cloud service. Music and sound effects use the original sound engine; the browser enables audio after user interaction.
+The local server binds to your own computer. No player account is needed. The page includes Cloudflare Web Analytics for aggregate visit metrics. Music and sound effects use the original sound engine; the browser enables audio after user interaction.
 
 ## What runs in WebAssembly
 
-`web/CMakeLists.txt` compiles the original game sources, command parser, collision checks, fixed point movement, animation and damage calculation directly from `3sx/src`. **The `3sx` checkout is unchanged.** JavaScript schedules the original 59.59949 frames per second and supplies input buttons. It does not decide whether a parry, attack, hit or knockout succeeds.
+`web/CMakeLists.txt` compiles the original game sources, command parser, collision checks, fixed point movement, animation and damage calculation directly from `3sx/src`. **The `3sx` checkout is unchanged.** JavaScript supplies input buttons and schedules fixed NTSC PS2 ticks at 60000/1001 Hz (approximately 59.94), based on [PS2 timing](https://github.com/PCSX2/pcsx2/blob/master/pcsx2/Counters.cpp). It does not decide whether a parry, attack, hit or knockout succeeds.
+
+`web/dist/timing.js` keeps the simulation clock independent of display refresh. Keyboard transitions and controller snapshots retain their timestamps and are sampled at each game tick. A tap spanning a tick is preserved even when both its press and release arrive before a delayed display callback. Taps entirely between ticks receive no added buffering, and new controller snapshots are not copied onto older catch-up frames. Intermediate catch-up frames execute all combat calculations; the browser draws the latest state. A display callback stalled for more than four game ticks pauses the attempt rather than silently dropping elapsed time or rushing through missed inputs. Pause/resume retain currently held buttons, discard old queued transitions, and reset the clock. Retry clears queued keyboard input.
 
 The changes are outside that checkout:
 
@@ -44,7 +46,7 @@ This build uses 3SX revision `7bf8ab611b64ab762aa36324aa2942dee5285174`, Emscrip
 
 ### Fidelity limits
 
-This is a reconstruction using the provided **PS2 engine and assets**. 3SX's PS2-to-CPS3 arcade accuracy work is ongoing; this build does not claim arcade-identical behavior. It leaves the PS2 combat path enabled, with default system direction settings.
+This is a reconstruction using the provided **PS2 engine and assets**. 3SX's PS2-to-CPS3 arcade accuracy work is ongoing; this build does not claim arcade-identical behavior. It leaves the PS2 combat path enabled, with default system direction settings. Browser presentation remains tied to the display’s refresh rate, and the Gamepad API only exposes snapshots observed by the browser. This cannot recover controller transitions that the browser never reports. Physical controller-to-screen latency and per-frame equivalence to a reference PS2 run have not been measured.
 
 The historical 2004 controller recording and exact savestate were not supplied. Chun-Li's super command, remaining health and meter are reconstructed. Position and camera measurements come from the official footage just before the super, around 0:29: Ken on the right, Chun-Li on the left, with approximately 243 game pixels between their origins. The camera and sprite offsets are initialized before the scene is shown. The engine itself generates the complete attack sequence, including the two spacing-related missed kicks and fifteen connecting kicks. Starting health is Ken 1 / Chun-Li 55, with one super stock each; timer 26; third-round stage music; Ken's white costume and Chun-Li's blue costume. Chun-Li inputs the super after a short neutral lead-in and then releases the controls. The reference clip is [Evo Events' official Moment 37 video](https://www.youtube.com/watch?v=JzS96auqau0).
 
@@ -93,11 +95,12 @@ The game is hosted at **https://jpcrs.github.io/evo-moment-37/**. All runtime UR
 npm ci
 npx playwright install chromium
 npm test
-node web/tests/audio.cjs
+npm run test:timing
+npm run test:audio
 python3 web/audit_build.py
 ```
 
-The browser integration test starts its own temporary local server, boots the real engine, checks the characters/stage/costumes/positions, compares the rendered scene before and after a KO and retry, verifies the neutral-input loss, plays the complete parry-and-KO sequence twice, tests keyboard input and pause, tests standard gamepad input, pause and retry through the browser input loop, and verifies resumed audio with nonzero PCM output from the original sound engine. It writes a screenshot to `web/tests/win.png`. The audio integration check verifies independent volume sliders, lazy loading, native super activation, track start offset, pause/resume, retry, and the two Help links. It also verifies that the recording stops on missed parries and escaping, stays stopped until retry, and continues through a successful sequence.
+The browser integration test starts its own temporary local server, boots the real engine, checks the characters/stage/costumes/positions, compares the rendered scene before and after a KO and retry, verifies the neutral-input loss, plays the complete parry-and-KO sequence twice, tests keyboard input and pause, tests standard gamepad input, pause and retry through the browser input loop, and verifies resumed audio with nonzero PCM output from the original sound engine. It writes a screenshot to `web/tests/win.png`. The timing check verifies 600 PS2 ticks in 10.01 seconds across 60/120/144/165 Hz schedules, timestamped keyboard and controller input through the browser loop, the same fifteen parries and KO at 60/120/144 Hz, and stall pause/resume without skipped game frames. The audio integration check verifies independent volume sliders, lazy loading, native super activation, playback rate, track start offset, pause/resume, retry, and the two Help links. It also verifies that the recording stops on missed parries and escaping, stays stopped until retry, and continues through a successful sequence.
 
 Automated controller checks use the standard Gamepad API with a simulated pad. A physical controller has not been attached for this test. The build has been verified in Chromium; other WebGL 2 browsers are not yet separately verified.
 
