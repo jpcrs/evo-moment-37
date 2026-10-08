@@ -91,11 +91,11 @@ class MomentAssistance {
     this.strikeY=this.height*.78;this.pixelsPerFrame=Math.max(1.8,this.strikeY/90);
     this.targets.style.top=`${this.strikeY}px`;
   }
-  render({paused=this.paused,controller=!this.keyboard}={}) {
-    this.paused=paused;this.keyboard=!controller;
+  render({paused=this.paused,controller=!this.keyboard,touch=this.touch}={}) {
+    this.paused=paused;this.keyboard=!controller;this.touch=touch;
     if(!this.enabled||!this.loaded||!this.width)return;
     const state=this.snapshot,frame=this.stoppedFrame??state.frame;
-    const renderKey=[frame,state.status,state.parries,!!state.failed,!!state.desynced,paused,controller,this.width,this.height,this.flashFrame].join(':');
+    const renderKey=[frame,state.status,state.parries,!!state.failed,!!state.desynced,paused,controller,touch,this.width,this.height,this.flashFrame].join(':');
     if(renderKey===this.lastRenderKey)return;this.lastRenderKey=renderKey;
     this.track.dataset.frame=frame;this.targets.dataset.frame=frame;
     const parryConfirmed=state.parries>0&&frame>=this.flashFrame&&frame-this.flashFrame<=8&&!state.failed&&!state.desynced;
@@ -140,8 +140,8 @@ class MomentAssistance {
       if(motion)node.title=cue.glyph+' — hold to the next direction';
     });
     this.title.textContent=paused?'Paused':state.status===4?'Challenge complete':state.failed?'Sequence missed':state.desynced?'Rhythm changed':state.status===1?'Ready':next?.name||'Finish the comeback';
-    this.hint.textContent=state.failed?'Press R to retry':state.desynced?'Press R to realign the guide':paused?'Resume to continue':state.status===1?'Start the challenge to follow the cues':next?.hint||'Knock out Chun-Li';
-    this.legend.textContent=controller?'LK / MK / HK · controller kicks':'LK = A · MK = S · HK = D';
+    this.hint.textContent=state.failed?(touch?'Tap Retry':'Press R to retry'):state.desynced?(touch?'Tap Retry to realign the guide':'Press R to realign the guide'):paused?'Resume to continue':state.status===1?'Start the challenge to follow the cues':next?.hint||'Knock out Chun-Li';
+    this.legend.textContent=touch?'LK / MK / HK · touch kicks':controller?'LK / MK / HK · controller kicks':'LK = A · MK = S · HK = D';
   }
   get state() {return{enabled:this.enabled,loaded:this.loaded,...this.snapshot,displayFrame:this.stoppedFrame??this.snapshot.frame,paused:this.paused};}
 }

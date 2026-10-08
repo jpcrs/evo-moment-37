@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#0c1018">
   <meta name="description" content="Parry all fifteen kicks and finish the comeback in the original 3rd Strike engine.">
   <title>Moment 37 — The Daigo Challenge</title>
@@ -54,6 +54,7 @@
         <dl><dt>Move / parry</dt><dd><kbd>←</kbd> <kbd>↓</kbd> <kbd>↑</kbd> <kbd>→</kbd></dd><dt>Light / medium / heavy punch</dt><dd><kbd>Z</kbd> <kbd>X</kbd> <kbd>C</kbd></dd><dt>Light / medium / heavy kick</dt><dd><kbd>A</kbd> <kbd>S</kbd> <kbd>D</kbd></dd><dt>Retry</dt><dd><kbd>R</kbd></dd><dt>Pause / resume</dt><dd><kbd>Space</kbd> / <kbd>Esc</kbd></dd><dt>Start / resume</dt><dd><kbd>Enter</kbd></dd></dl>
         <h3>Controller</h3>
         <p>D-pad or left stick to move. Xbox <b>X / Y / RB</b> or PlayStation <b>Square / Triangle / R1</b> for punches; Xbox <b>A / B / RT</b> or PlayStation <b>Cross / Circle / R2</b> for kicks. <b>Start / Options</b> starts or pauses; <b>Back / Share</b> retries.</p>
+        <div class="touch-help"><h3>Touch · landscape</h3><p>Use the left D-pad to move and parry. Tap <b>←</b> and lift your thumb between hits. Slide through <b>↓ ↙ ←</b> for each quarter circle; use the right <b>LK / MK / HK</b> buttons for kicks. You can hold a direction and attack with another finger. Use the bottom bar to pause or retry. Rotating to portrait pauses the attempt.</p></div>
         <p class="controller-status" id="controller">KEYBOARD READY</p>
       </div>
       <div class="help-videos"><a href="https://www.youtube.com/watch?v=JzS96auqau0" target="_blank" rel="noopener noreferrer">Watch Daigo’s Evo Moment #37 <span aria-hidden="true">↗</span></a><a href="https://www.youtube.com/watch?v=jQ_2iIqxH7Y" target="_blank" rel="noopener noreferrer">Bonus <span aria-hidden="true">↗</span></a></div>
@@ -69,14 +70,36 @@
     </div>
     <div class="guide-footer"><strong id="guide-next">Ready</strong><p id="guide-hint">Start the challenge to follow the cues</p><small id="guide-legend">LK = A · MK = S · HK = D</small></div>
   </aside>
+  <div class="touch-controls" id="touch-controls" aria-label="Touch game controls" hidden>
+    <div class="touch-pad" id="touch-pad" role="group" aria-label="Movement and parry">
+      <button type="button" data-touch-input="5" data-direction aria-label="Up left" aria-pressed="false">↖</button>
+      <button type="button" data-touch-input="1" data-direction aria-label="Jump" aria-pressed="false">↑</button>
+      <button type="button" data-touch-input="9" data-direction aria-label="Up right" aria-pressed="false">↗</button>
+      <button type="button" data-touch-input="4" data-direction aria-label="Forward left, parry" aria-pressed="false">←<small>PARRY</small></button>
+      <span class="touch-pad-center" aria-hidden="true">+</span>
+      <button type="button" data-touch-input="8" data-direction aria-label="Back right" aria-pressed="false">→</button>
+      <button type="button" data-touch-input="6" data-direction aria-label="Down left" aria-pressed="false">↙</button>
+      <button type="button" data-touch-input="2" data-direction aria-label="Crouch" aria-pressed="false">↓</button>
+      <button type="button" data-touch-input="10" data-direction aria-label="Down right" aria-pressed="false">↘</button>
+    </div>
+    <div class="touch-attacks" role="group" aria-label="Attack buttons">
+      <button type="button" data-touch-input="16" aria-label="Light punch" aria-pressed="false">LP</button>
+      <button type="button" data-touch-input="32" aria-label="Medium punch" aria-pressed="false">MP</button>
+      <button type="button" data-touch-input="64" aria-label="Heavy punch" aria-pressed="false">HP</button>
+      <button type="button" data-touch-input="256" aria-label="Light kick" aria-pressed="false">LK</button>
+      <button type="button" data-touch-input="512" aria-label="Medium kick" aria-pressed="false">MK</button>
+      <button type="button" data-touch-input="1024" aria-label="Heavy kick" aria-pressed="false">HK</button>
+    </div>
+  </div>
   </div>
   <div class="game-bottom">
     <span id="phase-label">PREPARING CHALLENGE</span>
     <span id="attempts">ATTEMPT 01</span>
     <div class="game-actions"><button id="pause" disabled aria-label="Pause">Ⅱ <span>Pause</span></button><button id="retry" disabled>↻ <span>Retry</span></button><button id="fullscreen" aria-label="Fullscreen">⛶</button></div>
   </div>
+  <div class="mobile-rotate" id="mobile-rotate" role="status" hidden><div class="rotate-phone" aria-hidden="true">↻</div><h2>Turn your phone sideways.</h2><p>The challenge plays in landscape.<br>Rotate to use the touch controls.</p></div>
 </main>
-<script src="engine.js"></script><script src="timing.js"></script><script src="audio.js"></script><script src="assistance.js"></script><script src="app.js"></script>
+<script src="engine.js"></script><script src="timing.js"></script><script src="touch.js"></script><script src="audio.js"></script><script src="assistance.js"></script><script src="app.js"></script>
 <!-- Cloudflare Web Analytics --><script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "5d67cce2f8cd4b59bfad0d0880a04b0c"}'></script><!-- End Cloudflare Web Analytics -->
 </body>
 </html>

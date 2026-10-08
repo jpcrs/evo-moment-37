@@ -43,8 +43,8 @@ function momentInputTime(timestamp,now=performance.now()) {
   return Math.min(now,Math.max(0,timestamp));
 }
 
-function momentCombineButtons(keyboard,pad) {
-  let bits=keyboard|pad;
+function momentCombineButtons(...inputs) {
+  let bits=inputs.reduce((bits,input)=>bits|input,0);
   if((bits&12)===12)bits&=~(12|(12<<16));if((bits&3)===3)bits&=~3;
   return bits;
 }

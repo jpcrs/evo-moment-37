@@ -1,6 +1,6 @@
 # Moment 37
 
-A playable browser challenge built from the `3sx` C engine and a local PS2 disc image. Ken versus Chun-Li on the NYC subway stage, one health point, a scripted Houyoku-sen, fifteen parries and a counterattack to win. Keyboard and standard browser controllers are supported.
+A playable browser challenge built from the `3sx` C engine and a local PS2 disc image. Ken versus Chun-Li on the NYC subway stage, one health point, a scripted Houyoku-sen, fifteen parries and a counterattack to win. Keyboard, standard browser controllers and mobile touch controls are supported.
 
 ## Play
 
@@ -19,6 +19,8 @@ Open **http://localhost:3737** in a browser with WebGL 2. Click **Start challeng
 | Light / medium / heavy kick | A / S / D | A / B / RT · Cross / Circle / R2 |
 | Retry | R | Back / Share |
 | Pause / resume | Space or Escape | Start / Options |
+
+On a phone or touch tablet, play in **landscape**. The overlay D-pad supports eight directions and sliding through quarter circles; the right buttons provide LP/MP/HP and LK/MK/HK. Lift your thumb between forward taps. Multiple fingers can hold a direction and attack together. Touch events use the same timestamped simulation input path and ten-frame parry rule as keyboard and controller input. Touch buttons appear only during active mobile play. Rotating to portrait pauses the attempt and clears held touches; rotate back and tap Resume. Pause, Help, retry, cancellation and loss of pointer capture also release touches. The layout accounts for display safe areas, retains the game's 4:3 aspect ratio, and puts the optional guide above the attack buttons. Mobile initializes a fixed 768×576 backing buffer, so loading in portrait cannot leave the renderer with a zero-sized or low-resolution canvas. Viewport changes are also checked each display callback for browser paths that omit resize events. Desktop controls and layout are unchanged.
 
 Ken starts on the right, facing Chun-Li on the left. Tap **left**, then release, for each parry. Jump before the last kick and tap forward in the air. Counter with jumping heavy kick, crouching medium kick, then two quarter circles forward plus kick for Shippu Jinraikyaku. Ken wins only after all fifteen parries and an actual engine-calculated knockout. The game also supports ordinary movement, attacks and super commands; there is no automatic parry or combo button.
 
@@ -97,12 +99,13 @@ The game is hosted at **https://jpcrs.github.io/evo-moment-37/**. All runtime UR
 
 ```sh
 npm ci
-npx playwright install chromium
+npx playwright install chromium webkit
 npm run test:parry
 npm test
 npm run test:timing
 npm run test:audio
 npm run test:assistance
+npm run test:mobile
 python3 web/audit_build.py
 ```
 
@@ -110,7 +113,9 @@ The parry-window test sweeps all ten valid input frames for all fifteen contacts
 
 The browser integration test starts its own temporary local server, boots the real engine, checks the characters/stage/costumes/positions, compares the rendered scene before and after a KO and retry, verifies the neutral-input loss, plays the complete parry-and-KO sequence twice, tests keyboard input and pause, tests standard gamepad input, pause and retry through the browser input loop, and verifies resumed audio with nonzero PCM output from the original sound engine. It writes a screenshot to `web/tests/win.png`. The timing check verifies 600 simulation ticks in 10.01 seconds across 60/120/144/165 Hz schedules, timestamped keyboard and controller input through the browser loop, the same fifteen parries and KO at 60/120/144 Hz, and stall pause/resume without skipped game frames. The audio integration check verifies independent volume sliders, lazy loading, native super activation, playback rate, track start offset, pause/resume, retry, and the two Help links. It also verifies that the recording stops on missed parries and escaping, stays stopped until retry, and continues through a successful sequence.
 
-Automated controller checks use the standard Gamepad API with a simulated pad. A physical controller has not been attached for this test. The build has been verified in Chromium; other WebGL 2 browsers are not yet separately verified.
+The mobile integration check exercises portrait gating, rotation during play and Help, real browser multi-touch and pointer capture, sliding two quarter circles while holding a kick, cancellation, pause, retry, ten sub-frame parry taps, and a complete winning sequence through the touch input loop. It checks phone and tablet landscape layouts with and without assistance. It also boots the engine and checks touch/pause/orientation behavior in WebKit. Screenshots are saved to `web/tests/mobile-landscape.png` and `web/tests/mobile-portrait.png`.
+
+Automated controller checks use the standard Gamepad API with a simulated pad. A physical controller has not been attached for this test. Mobile checks emulate touch devices in Chromium and WebKit; a physical phone has not been tested.
 
 ## Attribution
 
