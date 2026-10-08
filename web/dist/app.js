@@ -12,7 +12,6 @@ const touchControls=new MomentTouchControls({root:$('game'),controls:$('touch-co
 if(touchControls.mobile){
  $('mobile-settings').append(document.querySelector('.top-controls'));
  $('mobile-actions').append(document.querySelector('.game-actions'));
- $('screen').append($('touch-controls'));
  const standalone=navigator.standalone||matchMedia('(display-mode: standalone)').matches||matchMedia('(display-mode: fullscreen)').matches;
  $('mobile-install').hidden=!!standalone;
  if(!/iPhone|iPad|iPod/.test(navigator.userAgent)&&!(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1))
