@@ -1,7 +1,7 @@
 /* The browser schedules frames and supplies buttons. The game owns all combat decisions. */
 const $ = id => document.getElementById(id);
 const canvas=$('canvas'),overlay=$('overlay'),play=$('play'),helpDialog=$('help-dialog');
-let resumeAfterHelp=false,startPending=false;
+let resumeAfterHelp=false,startPending=false,resumePending=false;
 const audioMixer=new MomentAudio({volume:$('game-volume'),volumeValue:$('game-volume-value'),evoVolume:$('evo-volume'),evoValue:$('evo-volume-value')});
 const assistanceGuide=new MomentAssistance({root:$('game'),button:$('assistance'),panel:$('assistance-panel'),track:$('guide-track'),targets:$('guide-targets'),title:$('guide-next'),hint:$('guide-hint'),legend:$('guide-legend')});
 assistanceGuide.load().then(()=>{$('assistance').disabled=!ready;}).catch(error=>{$('assistance').title=error.message;console.error(error);});
@@ -42,6 +42,14 @@ async function start(origin){
 function retry(origin){if(!ready||startPending||touchControls.blocked)return;audioMixer.reset();attempt++;$('attempts').textContent=`ATTEMPT ${String(attempt).padStart(2,'0')}`;engine._web_reset();assistanceGuide.reset();lastParries=-1;lastStatus=-1;start(origin);}
 function setPaused(value,note=''){
  if(!value&&touchControls.blocked)return;
+ if(!value&&audioMixer.context.state!=='running'){
+  if(resumePending)return;
+  resumePending=true;const resumeAttempt=attempt;
+  audioMixer.unlock().then(()=>{if(attempt===resumeAttempt&&!helpDialog.open&&engine?._web_status()===2)setPaused(false);})
+   .catch(error=>{$('pause-note').textContent=error.message;$('pause-note').hidden=false;})
+   .finally(()=>{resumePending=false;});
+  return;
+ }
  paused=value;touchControls.setInteractive(!paused&&!helpDialog.open&&engine._web_status()===2);if(paused)audioMixer.pause(engine);else audioMixer.resume(engine);$('pause-overlay').hidden=!paused||helpDialog.open;
  $('pause').innerHTML=paused?'▶ <span>Resume</span>':'Ⅱ <span>Pause</span>';
  $('pause').setAttribute('aria-label',paused?'Resume':'Pause');
@@ -98,6 +106,10 @@ function tick(presentationTime){
  }catch(err){failure(err);engine=null;}
 }
 function failure(err){console.error(err);overlay.hidden=false;$('overlay-title').textContent='The engine couldn’t start';$('overlay-copy').textContent=String(err.message||err);$('load-track').hidden=true;$('load-note').hidden=true;play.disabled=false;play.textContent='Reload';play.onclick=()=>location.reload();}
+function unlockAudioFromGesture(event){
+ if(event.isTrusted&&ready&&!touchControls.blocked&&audioMixer.context.state!=='running')audioMixer.unlock().catch(error=>console.debug(error));
+}
+for(const type of ['pointerup','touchend','keydown'])document.addEventListener(type,unlockAudioFromGesture,true);
 document.addEventListener('keydown',e=>{
  if(touchControls.blocked)return;
  if(helpDialog.open){if(e.code==='Escape'){e.preventDefault();closeHelp();}return;}
@@ -141,4 +153,8 @@ requestAnimationFrame(tick);
  let initialized;try{initialized=engine._web_init();}finally{[canvas.style.width,canvas.style.height]=size;}
  if(!initialized)throw new Error('WebGL 2 or game resources could not be initialized.');
  audioMixer.init(engine);
+ audioMixer.context.addEventListener('statechange',()=>{
+  if(ready&&!paused&&engine?._web_status()===2&&audioMixer.context.state!=='running')
+   setPaused(true,touchControls.mobile?'Audio was interrupted. Tap Resume to continue.':'Audio was interrupted. Press Space to resume.');
+ });
 }catch(err){failure(err);engine=null;}})();

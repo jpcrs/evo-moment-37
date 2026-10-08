@@ -5,6 +5,7 @@ class MomentAudio {
     this.context=null;this.gameGain=null;this.evoGain=null;this.buffer=null;this.loading=null;
     this.enabled=false;this.source=null;this.offset=0;this.anchor=0;this.clockStart=null;
     this.status='off';this.starts=0;this.lastDrift=0;this.complete=false;this.suspended=false;
+    this.primed=false;this.configureSession();
     volume.addEventListener('input',()=>this.setVolume(volume.value));
     this.setVolume(volume.value);
     this.setEvoVolume(evoVolume.value);
@@ -17,6 +18,23 @@ class MomentAudio {
     this.evoGain.connect(this.context.destination);
     this.setVolume(this.volume.value);
     this.setEvoVolume(this.evoVolume.value);
+  }
+  configureSession() {
+    // WebKit's default ambient session obeys the iPhone's Silent Mode switch.
+    // Both the original game audio and the recording need playback routing.
+    try{if(navigator.audioSession&&navigator.audioSession.type!=='playback')navigator.audioSession.type='playback';}catch{}
+  }
+  unlock() {
+    this.configureSession();
+    if(!this.context)return Promise.resolve();
+    if(this.context.state==='closed')return Promise.reject(new Error('Audio was closed by the browser. Reload to restore sound.'));
+    // Start a zero-valued sample inside the user gesture to prime mobile audio.
+    if(!this.primed||this.context.state!=='running'){
+      const source=this.context.createBufferSource();source.buffer=this.context.createBuffer(1,1,this.context.sampleRate);
+      source.connect(this.context.destination);source.onended=()=>source.disconnect();source.start();this.primed=true;
+    }
+    const resumed=this.context.state==='interrupted'?this.context.suspend().then(()=>this.context.resume()):this.context.state==='running'?Promise.resolve():this.context.resume();
+    return resumed.then(()=>{if(this.context.state!=='running')throw new Error('Audio is still interrupted. Tap Resume again when it is available.');});
   }
   setVolume(value) {
     const percent=Math.max(0,Math.min(100,Number(value)));
@@ -50,7 +68,7 @@ class MomentAudio {
     return this.loading;
   }
   async arm() {
-    if(this.context.state==='suspended')await this.context.resume();
+    await this.unlock();
     if(this.enabled&&!this.complete)await this.load();
   }
   reset() {
@@ -93,5 +111,5 @@ class MomentAudio {
     // Correct a browser stall without delaying the game or changing its frame calculations.
     if(Math.abs(this.lastDrift)>2/MomentTiming.EVO_REFERENCE_FPS)this.play(this.target(engine));
   }
-  get state() {return {enabled:this.enabled,status:this.status,ready:!!this.buffer,activationFrame:this.clockStart,starts:this.starts,offset:this.offset,position:this.context?this.position():0,lastDrift:this.lastDrift,gameVolume:this.gameGain?.gain.value??1,evoVolume:this.evoGain?.gain.value??Number(this.evoVolume.value)/100};}
+  get state() {return {enabled:this.enabled,status:this.status,ready:!!this.buffer,contextState:this.context?.state??'uninitialized',sessionType:navigator.audioSession?.type??null,activationFrame:this.clockStart,starts:this.starts,offset:this.offset,position:this.context?this.position():0,lastDrift:this.lastDrift,gameVolume:this.gameGain?.gain.value??1,evoVolume:this.evoGain?.gain.value??Number(this.evoVolume.value)/100};}
 }

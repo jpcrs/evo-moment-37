@@ -30,6 +30,8 @@ The guide reads the native engine's next input-frame index after each simulation
 
 The top bar includes independent **Game** and **Evo** volume sliders, both starting at 100%; 0% mutes a track. Starting with Evo above 0% loads a local 16-second PCM clip from the requested Evo Events recording, beginning at its super-activation frame (video frame 896 at 30 fps, 29.8667 seconds). The recording is aligned to the engine’s confirmed Houyoku-sen activation. Playback follows the ratio between the PS2 clock and the original challenge’s 59.59949 Hz recording alignment, preserving synchronization after the clock correction. Pause holds the recording at the game clock; resume restores the matching offset; retry resets it and preserves both volume settings. Help links to the official recording and the requested Bonus video.
 
+Where supported, the browser requests a `playback` Audio Session before creating its audio context. This addresses [WebKit's Silent Mode behavior](https://bugs.webkit.org/show_bug.cgi?id=237322) for both tracks on iPhone Safari. Start and trusted input gestures prime the output and resume suspended or interrupted contexts. An unexpected audio interruption pauses the challenge; Resume restores the audio context before advancing any game frames and resumes the recording from its saved game position. Browsers without Audio Session support keep the standard Web Audio path.
+
 The Evo recording stops immediately when a kick hits or is blocked without a parry, when a required kick's active window closes without a parry (including moving out of range), or when Ken takes damage. A failed sequence stays muted until retry. The adapter observes the original engine's attack IDs and confirmed parries; it does not use wall-clock deadlines or change combat calculations. Kicks 5 and 13 naturally miss at the reference spacing and are allowed. After all fifteen parries, the recording can continue through the counterattack and crowd reaction.
 
 The local server binds to your own computer. No player account is needed. The page includes Cloudflare Web Analytics for aggregate visit metrics. Music and sound effects use the original sound engine; the browser enables audio after user interaction.
@@ -104,6 +106,7 @@ npm run test:parry
 npm test
 npm run test:timing
 npm run test:audio
+npm run test:mobile-audio
 npm run test:assistance
 npm run test:mobile
 python3 web/audit_build.py
@@ -114,6 +117,8 @@ The parry-window test sweeps all ten valid input frames for all fifteen contacts
 The browser integration test starts its own temporary local server, boots the real engine, checks the characters/stage/costumes/positions, compares the rendered scene before and after a KO and retry, verifies the neutral-input loss, plays the complete parry-and-KO sequence twice, tests keyboard input and pause, tests standard gamepad input, pause and retry through the browser input loop, and verifies resumed audio with nonzero PCM output from the original sound engine. It writes a screenshot to `web/tests/win.png`. The timing check verifies 600 simulation ticks in 10.01 seconds across 60/120/144/165 Hz schedules, timestamped keyboard and controller input through the browser loop, the same fifteen parries and KO at 60/120/144 Hz, and stall pause/resume without skipped game frames. The audio integration check verifies independent volume sliders, lazy loading, native super activation, playback rate, track start offset, pause/resume, retry, and the two Help links. It also verifies that the recording stops on missed parries and escaping, stays stopped until retry, and continues through a successful sequence.
 
 The mobile integration check exercises portrait gating, rotation during play and Help, real browser multi-touch and pointer capture, sliding two quarter circles while holding a kick, cancellation, pause, retry, ten sub-frame parry taps, and a complete winning sequence through the touch input loop. It checks phone and tablet landscape layouts with and without assistance. It also boots the engine and checks touch/pause/orientation behavior in WebKit. Screenshots are saved to `web/tests/mobile-landscape.png` and `web/tests/mobile-portrait.png`.
+
+The mobile audio test measures nonzero signal after both volume gains in Chromium and WebKit, checks WebKit's playback session type, simulates an interrupted context, verifies that gameplay freezes until audio resumes, and checks volume preservation on retry. Browser emulation cannot verify a physical iPhone's speaker or Silent Mode switch.
 
 Automated controller checks use the standard Gamepad API with a simulated pad. A physical controller has not been attached for this test. Mobile checks emulate touch devices in Chromium and WebKit; a physical phone has not been tested.
 
