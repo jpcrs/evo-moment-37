@@ -58,12 +58,13 @@ const golden=require('./golden-inputs.json');
      if((kick===5||kick===13)&&naturalMisses.at(-1)?.kick!==kick)naturalMisses.push({kick,parries:count,audio:audioMixer.state.status});
      if(audioMixer.state.status==='stopped'&&!firstStop)firstStop={frame:f,hp:e._web_value(3),parries:count,kick,gameStatus:e._web_status(),result:e._web_value(40)};
     }
-    return{firstStop,events,naturalMisses,hp:e._web_value(3),parries:e._web_value(5),gameStatus:e._web_status(),failed:e._web_value(54),audio:audioMixer.state.status};
+    return{firstStop,events,naturalMisses,hp:e._web_value(3),parries:e._web_value(5),gameStatus:e._web_status(),failed:e._web_value(54),finish:moment37.finish,audio:audioMixer.state.status};
    }
    const missing={...golden.inputs};delete missing[golden.expected_parries[5]-4];
    const escape=Object.fromEntries(Array.from({length:80},(_,f)=>[f,8]));
    const parriesOnly=Object.fromEntries(Object.entries(golden.inputs).filter(([f])=>Number(f)<=445));
-   const results={success:run(golden.inputs),allParries:run(parriesOnly,480),mistake:run({}),lateMistake:run(missing),escape:run(escape)};
+   const wrongFinish={...golden.inputs};wrongFinish[514]=wrongFinish[515]=4;
+   const results={success:run(golden.inputs),allParries:run(parriesOnly,480),finishMistake:run(wrongFinish),mistake:run({}),lateMistake:run(missing),escape:run(escape)};
    const starts=audioMixer.starts;audioMixer.setEvoVolume(75);audioMixer.resume(e);audioMixer.frame(e);
    results.cannotRestartFailedAudio=audioMixer.starts===starts&&audioMixer.state.status==='stopped';
    e._web_render(1);e._web_reset();audioMixer.reset();return results;
@@ -72,6 +73,9 @@ const golden=require('./golden-inputs.json');
   assert.equal(sequences.success.events.length,15);assert.ok(sequences.success.events.every(event=>event.audio==='playing'));
   assert.deepEqual(sequences.success.naturalMisses.map(event=>event.kick),[5,13]);assert.ok(sequences.success.naturalMisses.every(event=>event.audio==='playing'));
   assert.equal(sequences.allParries.parries,15);assert.equal(sequences.allParries.firstStop,null);assert.equal(sequences.allParries.audio,'playing');
+  assert.equal(sequences.finishMistake.parries,15);assert.equal(sequences.finishMistake.finish.failed,true);
+  assert.equal(sequences.finishMistake.audio,'stopped');assert.equal(sequences.finishMistake.firstStop.result,3);
+  assert.equal(sequences.finishMistake.firstStop.gameStatus,2,'A wrong finish must stop audio before the delayed result screen');
   assert.equal(sequences.mistake.firstStop.frame,153);assert.equal(sequences.mistake.firstStop.gameStatus,2);assert.equal(sequences.mistake.firstStop.result,0,'Audio stops at the missed parry, before the delayed KO');
   assert.equal(sequences.lateMistake.firstStop.parries,5);assert.equal(sequences.lateMistake.firstStop.frame,245);
   assert.equal(sequences.escape.firstStop.parries,0);assert.equal(sequences.escape.firstStop.hp,1,'Escaping cuts audio even while Ken is alive');assert.ok(sequences.escape.firstStop.frame<180);

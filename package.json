@@ -8,6 +8,7 @@
     "test": "node web/tests/smoke.cjs",
     "test:timing": "node web/tests/timing.cjs",
     "test:parry": "node web/tests/parry-windows.cjs",
+    "test:finish": "node web/tests/finish.cjs",
     "test:mobile": "node web/tests/mobile.cjs",
     "test:audio": "node web/tests/audio.cjs",
     "test:mobile-audio": "node web/tests/mobile-audio.cjs",

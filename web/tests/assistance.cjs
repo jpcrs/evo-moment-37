@@ -10,6 +10,7 @@ assert.deepEqual(reference,golden,'The guide and external macro must use the sam
 const context=vm.createContext({});vm.runInContext(fs.readFileSync('web/dist/assistance.js','utf8'),context);
 context.reference=reference;
 const cues=JSON.parse(vm.runInContext('JSON.stringify(momentGuideCues(reference))',context));
+assert.deepEqual(cues.filter(c=>c.lane==='attack').map(c=>[c.frame,c.glyph,c.key]),[[472,'HK','D'],[494,'MK','S'],[502,'MP','X'],[514,'LK','A']]);
 assert.deepEqual(cues.filter(c=>c.kind==='parry').map(c=>c.frame),golden.expected_parries.map(f=>f-4));
 assert.equal(cues.find(c=>c.ordinal===15).frame,441,'Place the airborne input near the middle of its ten-frame window');
 for(const cue of cues.filter(c=>c.kind==='parry')){
@@ -86,7 +87,7 @@ for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
    for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
     assistanceGuide.render();
     for(const cue of assistanceGuide.cues.filter(c=>c.frame===f)){
-     const id=cue.lane==='kick'?'kick':(cue.bits===1||cue.bits===2)?'updown':cue.bits===6?'diagonal':'forward';
+     const id=cue.lane==='attack'?'attack':(cue.bits===1||cue.bits===2)?'updown':cue.bits===6?'diagonal':'forward';
      const note=document.querySelector(`[data-cue="${cue.id}"]`),target=document.querySelector(`[data-target="${id}"]`),a=note.getBoundingClientRect(),b=target.getBoundingClientRect();
      checks.push({frame:f,cue:cue.id,glyph:note.querySelector('.guide-symbol').textContent,targetGlyph:target.querySelector('.guide-symbol').textContent,
       error:Math.max(Math.abs(a.x+a.width/2-b.x-b.width/2),Math.abs(a.y+a.height/2-b.y-b.height/2),Math.abs(a.width-b.width),Math.abs(a.height-b.height)),aligned:target.classList.contains('aligned')});
@@ -95,7 +96,7 @@ for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
    }
    e._web_render(1);return checks;
   });
-  assert.equal(targetChecks.length,25);
+  assert.equal(targetChecks.length,cues.length);
   for(const check of targetChecks){assert.equal(check.glyph,check.targetGlyph,check.cue);assert.equal(check.aligned,true,check.cue);assert.ok(check.error<.1,`${check.cue}: ${check.error}`);}
   const runs=await page.evaluate(()=>{
    const e=moment37.engine,result=[];
@@ -108,6 +109,19 @@ for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
   });
   for(const run of runs){assert.equal(run.status,4);assert.equal(run.ken,1);assert.equal(run.chun,-1);assert.equal(run.parries,15);assert.deepEqual(run.events,golden.expected_parries);assert.equal(run.desynced,false);}
   assert.equal(await page.locator('#guide-next').innerText(),'Challenge complete');
+  const finishFailure=await page.evaluate(()=>{
+   const e=moment37.engine,inputs={...reference.inputs};inputs[514]=inputs[515]=4;
+   e._web_reset();e._web_start();assistanceGuide.reset();let stopped;
+   for(let f=0;f<1100&&e._web_status()===2;f++){
+    e._web_step(inputs[f]||0);assistanceGuide.observe(e);
+    if(moment37.finish.failed&&stopped===undefined)stopped=moment37.assistance.displayFrame;
+   }
+   update();return{stopped,state:moment37.assistance,finish:moment37.finish};
+  });
+  assert.equal(finishFailure.state.finishFailed,true);assert.equal(finishFailure.state.displayFrame,finishFailure.stopped);
+  assert.equal(await page.locator('#guide-next').innerText(),'Finish missed');
+  assert.equal(await page.locator('#overlay-tag').innerText(),'FINISH MISSED');
+  assert.match(await page.locator('#overlay-copy').innerText(),/medium Shoryuken.*first uppercut hit.*Press R to retry/);
   await page.evaluate(()=>{assistanceGuide.reset();assistanceGuide.observe({_web_value:k=>k===2?150:k===5?1:0,_web_status:()=>2});assistanceGuide.render();});
   assert.equal(await page.locator('#guide-next').innerText(),'Rhythm changed','Non-reference contact timing must stop misleading future cues');
   await page.keyboard.press('KeyR');await page.waitForFunction(()=>moment37.state.status===2&&moment37.assistance.frame===0,null,{polling:10});
@@ -115,7 +129,7 @@ for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
    advanceGuideTo(180);
    assistanceGuide.render({controller:true});
   });
-  assert.equal(await page.locator('#guide-legend').innerText(),'LK / MK / HK · controller kicks');
+  assert.equal(await page.locator('#guide-legend').innerText(),'HK → MK → MP → LK · controller');
   await page.evaluate(()=>assistanceGuide.render({controller:false}));
   const frameBeforeToggle=await page.evaluate(()=>moment37.engine._web_value(2));
   await page.locator('#assistance').focus();await page.keyboard.press('Space');assert.equal(await page.evaluate(()=>moment37.assistance.enabled),false);
@@ -151,7 +165,7 @@ for(let f=0;f<=Math.max(...Object.keys(reference.inputs).map(Number))+1;f++){
   assert.equal(liveFrames.guide,liveFrames.engine,'The real browser loop must drive the guide from native frames');
   await live.waitForFunction(()=>moment37.assistance.failed);
   assert.equal(await live.evaluate(()=>moment37.assistance.displayFrame),154);
-  await live.waitForFunction(()=>moment37.state.status===3);assert.equal(await live.evaluate(()=>moment37.assistance.displayFrame),154);
+  await live.waitForFunction(()=>moment37.state.status===3).catch(async error=>{throw new Error(error.message+' '+JSON.stringify(await live.evaluate(()=>({state:moment37.state,guide:moment37.assistance,pauseNote:document.querySelector('#pause-note').textContent,copy:document.querySelector('#overlay-copy').textContent}))));});assert.equal(await live.evaluate(()=>moment37.assistance.displayFrame),154);
   await live.keyboard.press('KeyR');await live.waitForFunction(()=>moment37.assistance.frame<30&&!moment37.assistance.failed);
   assert.equal(await live.evaluate(()=>moment37.assistance.enabled),true);await live.close();
   assert.deepEqual(errors,[]);console.log(JSON.stringify({passed:true,cues:cues.length,alignment,targetChecks,pausedFrame:paused.frame,failure,runs,layouts},null,2));

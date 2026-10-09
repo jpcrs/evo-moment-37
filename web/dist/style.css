@@ -69,7 +69,7 @@ canvas {width:100%;height:100%;display:block;image-rendering:pixelated;outline:n
 .guide-note.past {opacity:.6}
 .guide-note.confirmed {border-color:#93e9b5;background:#203e31;color:#beefd0;opacity:1}
 .guide-note.missed {border-color:#ed8b8b;background:#4d282d;color:#ffc2c2;opacity:1}
-.guide-footer {padding:12px 14px 14px;border-top:1px solid var(--line);min-height:92px}
+.guide-footer {padding:12px 14px 14px;border-top:1px solid var(--line);min-height:92px;flex:0 0 128px}
 .guide-footer strong {font-size:12px;color:var(--text);display:block}
 .guide-footer p {font-size:10px;color:var(--muted);line-height:1.5;margin:5px 0 10px}
 .guide-footer small {font:8px ui-monospace,monospace;color:#a6b8c8}
@@ -196,7 +196,7 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
  .guide-receptor {outline-width:1px;outline-offset:2px}
  .guide-key {font-size:6px;bottom:2px}
  .guide-number {font-size:6px;min-width:11px;padding:2px;right:-3px;top:-3px}
- .guide-footer {min-height:58px;padding:7px}
+ .guide-footer {min-height:58px;padding:7px;flex-basis:94px}
  .guide-footer strong {font-size:9px}
  .guide-footer p {font-size:8px;line-height:1.35;margin:4px 0 0}
  .guide-footer small {display:none}
@@ -252,7 +252,7 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
  .guide-heading {padding:9px 7px 7px}
  .guide-heading h2 {font-size:16px}
  .guide-heading p {display:none}
- .guide-footer {min-height:58px;padding:7px}
+ .guide-footer {min-height:58px;padding:7px;flex-basis:94px}
  .guide-footer strong {font-size:9px}
  .guide-footer p {font-size:8px;line-height:1.35;margin:4px 0 0}
  .guide-footer small {display:none}
@@ -283,3 +283,7 @@ kbd {font:11px ui-monospace,monospace;border:1px solid #364252;border-bottom-wid
 .mobile-install b {color:var(--text);font-weight:600}
 #mobile-menu-back {display:block;width:100%;margin-top:14px;min-height:44px}
 .touch-mode #help-dialog {max-height:calc(var(--mobile-height,100dvh) - 24px);width:min(520px,calc(var(--mobile-width,100vw) - 32px))}
+
+.guide-note.punch,.guide-receptor.punch {border-color:var(--cyan);background:#1a303e;color:#e4f7fa;font:700 13px 'DM Sans',sans-serif;padding-bottom:6px;border-radius:8px}
+@media(max-width:700px) {.guide-note.punch,.guide-receptor.punch {font-size:9px;padding-bottom:4px}}
+.touch-mode .guide-note.punch,.touch-mode .guide-receptor.punch {font-size:10px;padding-bottom:0}

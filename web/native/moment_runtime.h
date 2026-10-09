@@ -5,4 +5,5 @@ void Moment_InitGame(void);
 void Moment_RunGameFrame(void);
 int Moment_Ready(void);
 void Moment_ApplyParryWindow(PLW* defender);
+void Moment_RecordFinishHit(PLW* attacker, PLW* defender);
 #endif

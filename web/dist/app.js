@@ -18,7 +18,7 @@ if(touchControls.mobile){
   $('mobile-install').innerHTML='Use <b>Full screen</b> to hide browser controls, or add the game to your Home Screen and launch it from its icon.';
 }
 for(let i=0;i<15;i++)$('parry-markers').append(document.createElement('i'));
-window.moment37={get engine(){return engine;},get state(){return {ready,paused,attempt,status:engine?engine._web_status():0,frameRate:MomentTiming.FPS}},get audio(){return audioMixer.state;},get assistance(){return assistanceGuide.state;}};
+window.moment37={get engine(){return engine;},get state(){return {ready,paused,attempt,status:engine?engine._web_status():0,frameRate:MomentTiming.FPS}},get audio(){return audioMixer.state;},get assistance(){return assistanceGuide.state;},get finish(){return engine?{stage:engine._web_value(59),failed:!!engine._web_value(60),hits:engine._web_value(61),cancels:engine._web_value(62),airParry:!!engine._web_value(63)}:null;}};
 function keyboardBits(){let bits=0;for(const key of keys)bits|=mapping[key]||0;return bits;}
 function resetInputClock(clearKeyboard=true,origin=performance.now()){if(clearKeyboard)keys.clear();touchControls.release();keyboardHistory.reset(keyboardBits(),origin);padHistory.reset(padBits,origin);touchHistory.reset(0,origin);frameClock.reset(origin);frameClock.last=performance.now();}
 function input(now){
@@ -107,6 +107,7 @@ function update(){
  if(status===3||status===4){
   overlay.hidden=false;$('overlay-tag').textContent='ONE HIT WAS ALL IT TOOK';$('overlay-title').textContent=status===4?'Thank you for playing. <3':'Run it back.';
   $('overlay-copy').textContent=status===4?'':engine._web_value(3)<0?`${count} parries. Tap forward just before impact, and release between hits.`:engine._web_value(4)<0?'Chun-Li is down, but all fifteen parries are needed to complete the challenge.':'Time is up. Parry all fifteen kicks, then finish the comeback.';
+  if(status===3&&engine._web_value(60)){$('overlay-tag').textContent='FINISH MISSED';$('overlay-copy').textContent='Connect jumping HK → crouching MK → medium Shoryuken → Shippu. Cancel the first uppercut hit; all twelve hits must stay in one combo.';}
   if(status===3)$('overlay-copy').textContent+=touchControls.mobile?' Tap Retry to try again.':' Press R to retry.';
   play.innerHTML='Try again <span>↻</span>';$('phase-label').textContent=status===4?'CHALLENGE COMPLETE':touchControls.mobile?'K.O. · TAP RETRY':'K.O. · PRESS R TO RETRY';
  }
@@ -176,7 +177,7 @@ helpDialog.addEventListener('cancel',e=>{e.preventDefault();closeHelp();});
 helpDialog.addEventListener('click',e=>{if(e.target===helpDialog){const rect=helpDialog.getBoundingClientRect();if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)closeHelp();}});
 requestAnimationFrame(tick);
 (async()=>{try{
- engine=await createMoment37({canvas,print:console.log,printErr:message=>console.debug(message),setStatus:message=>{const match=message.match(/(\d+)\/(\d+)/);if(match)$('load-bar').style.width=`${Math.round(Number(match[1])/Number(match[2])*100)}%`;},onAbort:message=>failure(new Error(message))});
+ engine=await createMoment37({canvas,locateFile:(name,prefix)=>prefix+name+(name.endsWith('.wasm')?'?v=20261009-daigo-finish':''),print:console.log,printErr:message=>console.debug(message),setStatus:message=>{const match=message.match(/(\d+)\/(\d+)/);if(match)$('load-bar').style.width=`${Math.round(Number(match[1])/Number(match[2])*100)}%`;},onAbort:message=>failure(new Error(message))});
  // SDL reads CSS dimensions once when creating its window. Give mobile a
  // stable backing resolution even if the page initially loads in portrait.
  const size=[canvas.style.width,canvas.style.height];

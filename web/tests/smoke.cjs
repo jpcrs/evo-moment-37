@@ -19,7 +19,7 @@ const golden=require('./golden-inputs.json');
   await page.goto('http://127.0.0.1:3738');
   await page.waitForFunction(()=>window.moment37?.state.ready,{},{timeout:30000});
   const setup=await page.evaluate(()=>[3,4,19,20,21,22,23,24,25].map(k=>moment37.engine._web_value(k)));
-  assert.deepEqual(setup,[1,55,11,15,2,1,11,5,0]);
+  assert.deepEqual(setup,[1,60,11,15,2,1,11,5,0]);
   const layout=await page.evaluate(()=>[0,6,7,17,18,46,47,48,50].map(k=>moment37.engine._web_value(k)));
   assert.ok(layout[0]<60,'Direct initialization must not run title or selection frames');
   assert.equal(layout[3],0);assert.equal(layout[4],1);
@@ -42,7 +42,7 @@ const golden=require('./golden-inputs.json');
   for(const retry of pixels.zoomRetries){assert.equal(retry.activation,100);assert.equal(retry.identical,true,`Retry during Chun-Li's super at frame ${retry.frame} must restore the camera and rendered scene`);}
   const runs=await page.evaluate(golden=>{
    const e=moment37.engine;e._web_render(0);
-   function run(inputs){e._web_reset();e._web_start();let events=[],parry=0,minChunHP=55,arts=[];
+   function run(inputs){e._web_reset();e._web_start();let events=[],parry=0,minChunHP=60,arts=[];
     for(let f=0;f<1100&&e._web_status()===2;f++){
      e._web_step(inputs[f]||0);let count=e._web_value(5);
      if(count>parry){events.push({frame:f,count,y:e._web_value(13)});parry=count;}

@@ -45,6 +45,7 @@ hitcheck='#include "moment_runtime.h"\n'+hitcheck
 for name in ('defense_ground_ps2','defense_sky_ps2'):
     original=function(hitcheck,name)
     hitcheck=hitcheck.replace(original,original.replace('{','{\n    Moment_ApplyParryWindow(ds);',1))
+hitcheck=hitcheck.replace('    add_combo_work(as, ds);', '    add_combo_work(as, ds);\n    Moment_RecordFinishHit(as, ds);',1)
 (OUT/'hitcheck_scene.c').write_text(hitcheck)
 stage=(ROOT/'3sx/src/sf33rd/Source/Game/stage/tate00.c').read_text()
 stage=re.sub(r'void \(\*ta_move_tbl\[AREA_COUNT\]\)\(\) = \{.*?\n\};',

@@ -163,7 +163,7 @@ const golden=require('./golden-inputs.json');
    const origin=testNow;resetInputClock(true,origin);let direction=0,kick=0,events=[],count=0;
    for(let frame=0;frame<800&&e._web_status()===2;frame++){
     testNow=origin+(frame+1)*MomentTiming.FRAME_MS;
-    const bits=g.inputs[frame]||0,dir=bits&15,attack=bits&1792,time=origin+(frame+.5)*MomentTiming.FRAME_MS;
+    const bits=g.inputs[frame]||0,dir=bits&15,attack=bits&1904,time=origin+(frame+.5)*MomentTiming.FRAME_MS;
     if(dir!==direction){event(dir?(direction?'pointermove':'pointerdown'):'pointerup',dir,1,time);direction=dir;}
     if(attack!==kick){if(kick)event('pointerup',0,2,time);if(attack)event('pointerdown',attack,2,time);kick=attack;}
     controlledFrames.shift()(origin+(frame+1)*MomentTiming.FRAME_MS);

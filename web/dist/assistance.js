@@ -2,11 +2,12 @@
 function momentGuideCues(sequence) {
   const directions={1:'↑',2:'↓',4:'←',8:'→',6:'↙',10:'↘',5:'↖',9:'↗'};
   const frames=Object.keys(sequence.inputs).map(Number),last=Math.max(...frames),cues=[];
+  const shoryukenMotion=sequence.finish.shoryuken_motion,superMotion=sequence.finish.super_motion;
   const motionStart=frames.find(f=>(sequence.inputs[f]&512)&&(sequence.inputs[f]&15)===2);
   const finisher=frames.find(f=>(sequence.inputs[f]&256)&&(sequence.inputs[f]&15)===4);
-  let previousDir=0,previousKick=0,parry=0;
+  let previousDir=0,previousAttack=0,parry=0;
   for(let frame=0;frame<=last+1;frame++){
-    const bits=sequence.inputs[frame]||0,dir=bits&15,kick=bits&1792;
+    const bits=sequence.inputs[frame]||0,dir=bits&15,attack=bits&1904;
     if(dir&&dir!==previousDir){
       let end=frame+1;while(end<=last&&(sequence.inputs[end]&15)===dir)end++;
       const isParry=dir===4&&frame<motionStart,isMotion=frame>=motionStart;
@@ -14,21 +15,21 @@ function momentGuideCues(sequence) {
       cues.push({id:`dir-${frame}`,frame,end,bits:dir,lane:'direction',glyph:directions[dir]||'↔',kind:isParry?'parry':isMotion?'motion':'jump',ordinal,
         windowStart:isParry?sequence.expected_parries[ordinal-1]-sequence.parry_window+1:null,
         windowEnd:isParry?sequence.expected_parries[ordinal-1]+1:null,
-        name:isParry?(ordinal===15?'Air parry':'Parry '+String(ordinal).padStart(2,'0')):frame===motionStart?'Crouching medium kick':frame===finisher?'Shippu Jinraikyaku':isMotion?'Super motion':'Jump',
+        name:isParry?(ordinal===15?'Air parry':'Parry '+String(ordinal).padStart(2,'0')):frame===motionStart?'Crouching medium kick':frame===finisher?'Shippu Jinraikyaku':isMotion?(frame>=shoryukenMotion&&frame<superMotion?'Shoryuken motion':'Super motion'):'Jump',
         hint:isParry?'Tap forward within the glowing window, then release':frame===motionStart?'Hold ↓ and tap MK':frame===finisher?'← + LK':isMotion?'Hold until the next direction':'Tap up'});
     }
-    if(kick&&kick!==previousKick){
-      let end=frame+1;while(end<=last&&(sequence.inputs[end]&1792)===kick)end++;
-      const rank=kick===1024?'HK':kick===512?'MK':'LK';
-      cues.push({id:`kick-${frame}`,frame,end,bits:kick,lane:'kick',glyph:rank,kind:'kick',key:rank==='HK'?'D':rank==='MK'?'S':'A',
-        name:rank==='HK'?'Jumping heavy kick':rank==='MK'?'Crouching medium kick':'Shippu Jinraikyaku',hint:rank==='LK'?'Finish ↓ ↙ ← ↓ ↙ ← + kick':'Tap '+rank});
+    if(attack&&attack!==previousAttack){
+      let end=frame+1;while(end<=last&&(sequence.inputs[end]&1904)===attack)end++;
+      const rank=attack===1024?'HK':attack===512?'MK':attack===32?'MP':'LK';
+      cues.push({id:`attack-${frame}`,frame,end,bits:attack,lane:'attack',glyph:rank,kind:rank==='MP'?'punch':'kick',key:rank==='HK'?'D':rank==='MK'?'S':rank==='MP'?'X':'A',
+        name:rank==='HK'?'Jumping heavy kick':rank==='MK'?'Crouching medium kick':rank==='MP'?'Medium Shoryuken':'Shippu Jinraikyaku',hint:rank==='MP'?'← ↓ ↙ + MP, then cancel the first hit into Shippu':rank==='LK'?'Finish ↓ ↙ ← ↓ ↙ ← + LK':'Tap '+rank});
     }
-    previousDir=dir;previousKick=kick;
+    previousDir=dir;previousAttack=attack;
   }
   return cues.sort((a,b)=>a.frame-b.frame);
 }
 
-function momentGuideX(cue) {return cue.lane==='kick'?0.87:(cue.bits===2||cue.bits===1)?0.18:cue.bits===6?0.36:0.54;}
+function momentGuideX(cue) {return cue.lane==='attack'?0.87:(cue.bits===2||cue.bits===1)?0.18:cue.bits===6?0.36:0.54;}
 
 class MomentAssistance {
   constructor({root,button,panel,track,targets,title,hint,legend}) {
@@ -39,13 +40,13 @@ class MomentAssistance {
     this.resizeObserver=new ResizeObserver(()=>{this.measure();this.render();});this.resizeObserver.observe(track);
   }
   async load() {
-    const response=await fetch('guide-sequence.json');if(!response.ok)throw new Error('The input guide could not be loaded.');
+    const response=await fetch('guide-sequence.json?v=20261009-daigo-finish');if(!response.ok)throw new Error('The input guide could not be loaded.');
     const sequence=await response.json();
     if(Math.abs(sequence.fps-MomentTiming.FPS)>1e-6)throw new Error('The input guide uses a different frame rate.');
     this.contacts=sequence.expected_parries;
     this.cues=momentGuideCues(sequence);
     this.motionStart=this.cues.find(c=>c.kind==='motion').frame;
-    this.receptors=['updown','diagonal','forward','kick'].map(id=>{
+    this.receptors=['updown','diagonal','forward','attack'].map(id=>{
       const node=document.createElement('div');node.className='guide-receptor';node.dataset.target=id;
       const symbol=document.createElement('span');symbol.className='guide-symbol';node.append(symbol);
       const key=document.createElement('small');key.className='guide-key';node.append(key);
@@ -74,7 +75,7 @@ class MomentAssistance {
   }
   observe(engine) {
     const frame=engine._web_value(2),parries=engine._web_value(5),status=engine._web_status();
-    const failed=!!engine._web_value(54)||engine._web_value(40)===3||status===3;
+    const finishFailed=!!engine._web_value(60),failed=finishFailed||!!engine._web_value(54)||engine._web_value(40)===3||status===3;
     if(failed&&this.stoppedFrame===null)this.stoppedFrame=frame;
     if(parries>this.previousParries){
       this.flashFrame=frame;
@@ -83,7 +84,7 @@ class MomentAssistance {
         this.desynced=true;if(this.stoppedFrame===null)this.stoppedFrame=frame;
       }
     }
-    this.previousParries=parries;this.snapshot={frame,parries,status,failed,desynced:this.desynced};
+    this.previousParries=parries;this.snapshot={frame,parries,status,failed,finishFailed,desynced:this.desynced};
   }
   measure() {
     if(!this.enabled)return;
@@ -109,7 +110,7 @@ class MomentAssistance {
       motionPhase?choose(c=>c.kind==='motion'&&c.bits===2):choose(c=>c.kind==='jump'),
       motionPhase?choose(c=>c.kind==='motion'&&c.bits===6):null,
       motionPhase?choose(c=>c.kind==='motion'&&c.bits===4):choose(c=>c.kind==='parry'),
-      choose(c=>c.lane==='kick')
+      choose(c=>c.lane==='attack')
     ];
     this.receptors.forEach((node,i)=>{
       const cue=targetCues[i];node.hidden=!cue;if(!cue)return;
@@ -139,9 +140,9 @@ class MomentAssistance {
       if(cue.key)node.querySelector('.guide-key').textContent=controller?'':cue.key;
       if(motion)node.title=cue.glyph+' — hold to the next direction';
     });
-    this.title.textContent=paused?'Paused':state.status===4?'Challenge complete':state.failed?'Sequence missed':state.desynced?'Rhythm changed':state.status===1?'Ready':next?.name||'Finish the comeback';
+    this.title.textContent=paused?'Paused':state.status===4?'Challenge complete':state.failed?(state.finishFailed?'Finish missed':'Sequence missed'):state.desynced?'Rhythm changed':state.status===1?'Ready':next?.name||'Finish the comeback';
     this.hint.textContent=state.failed?(touch?'Tap Retry':'Press R to retry'):state.desynced?(touch?'Tap Retry to realign the guide':'Press R to realign the guide'):paused?'Resume to continue':state.status===1?'Start the challenge to follow the cues':next?.hint||'Knock out Chun-Li';
-    this.legend.textContent=touch?'LK / MK / HK · touch kicks':controller?'LK / MK / HK · controller kicks':'LK = A · MK = S · HK = D';
+    this.legend.textContent=touch?'HK → MK → MP → LK · touch':controller?'HK → MK → MP → LK · controller':'HK = D · MK = S · MP = X · LK = A';
   }
   get state() {return{enabled:this.enabled,loaded:this.loaded,...this.snapshot,displayFrame:this.stoppedFrame??this.snapshot.frame,paused:this.paused};}
 }

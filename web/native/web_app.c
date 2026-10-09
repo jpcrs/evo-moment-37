@@ -29,6 +29,7 @@ static int achieved_parries, end_frames, end_result;
 static int chun_super_frame=-1,audio_frame;
 static int evo_failed,evo_kicks,evo_kick_parries,evo_kick_parried;
 static u16 evo_attack_id;
+static int finish_hits,finish_trace[16][8],finish_stage,finish_failed,finish_cancels,final_parry_air;
 enum { PARRY_WINDOW=10 };
 static int parry_tap=-1000,parry_air,previous_direction;
 static GameState checkpoint;
@@ -87,6 +88,25 @@ EMSCRIPTEN_KEEPALIVE void web_reset(void) {
  web_input(0,0);web_input(1,0);run_frame=0;audio_frame=0;chun_super_frame=-1;achieved_parries=0;end_frames=end_result=0;status=1;
  evo_failed=evo_kicks=evo_kick_parries=evo_kick_parried=0;evo_attack_id=0;
  parry_tap=-1000;parry_air=previous_direction=0;
+ finish_hits=finish_stage=finish_failed=finish_cancels=final_parry_air=0;memset(finish_trace,0,sizeof(finish_trace));
+}
+void Moment_RecordFinishHit(PLW* attacker,PLW* defender) {
+ if(status!=2||attacker!=&plw[0]||defender!=&plw[1]||finish_hits>=16)return;
+ int* trace=finish_trace[finish_hits++];
+ trace[0]=run_frame;trace[1]=attacker->wu.kind_of_waza;trace[2]=attacker->wu.routine_no[2];
+ trace[3]=attacker->wu.char_index;trace[4]=attacker->cp->lgp;trace[5]=defender->cb->total;
+ trace[6]=attacker->wu.xyz[1].disp.pos;trace[7]=attacker->wu.pat_status;
+ // Observe the original confirmed-hit/combo bookkeeping. These checks never
+ // supply attacks, alter damage, or extend the engine's cancel windows.
+ if(finish_failed)return;
+ if(achieved_parries!=15||!final_parry_air||defender->cb->total!=finish_hits){finish_failed=1;return;}
+ int move=attacker->wu.routine_no[2],kind=attacker->wu.kind_of_waza;
+ if(finish_stage==0&&finish_hits==1&&kind==5&&move==3&&attacker->wu.pat_status==20&&trace[6]>0)finish_stage=1;
+ else if(finish_stage==1&&finish_hits==2&&kind==3&&move==0&&attacker->wu.pat_status==32)finish_stage=2;
+ else if(finish_stage==2&&finish_hits==3&&kind==10&&move==17&&(finish_cancels&1))finish_stage=3;
+ else if(finish_stage==3&&finish_hits==4&&kind==37&&move==21&&finish_cancels==3)finish_stage=4;
+ else if(finish_stage==4&&finish_hits<=12&&kind==37&&move==21){}
+ else finish_failed=1;
 }
 // Challenge rule: one fresh forward tap arms ten simulation frames, including
 // super freeze and air parries. The original collision/defense code consumes it.
@@ -117,9 +137,10 @@ static void setup_challenge(void) {
  plw[0].wu.position_x=plw[0].wu.scr_mv_x=576;plw[1].wu.position_x=plw[1].wu.scr_mv_x=333;
  plw[0].wu.rl_flag=plw[0].wu.rl_waza=0;plw[1].wu.rl_flag=plw[1].wu.rl_waza=1;
  plw[0].wu.vital_new=plw[0].wu.vital_old=1;
- plw[1].wu.vital_new=plw[1].wu.vital_old=55;
+ // Leave enough health for all twelve connected hits of Daigo's finish.
+ plw[1].wu.vital_new=plw[1].wu.vital_old=60;
  vit[0].cyerw=vit[0].cred=vit[0].ored=1;vit[0].colnum=3;
- vit[1].cyerw=vit[1].cred=vit[1].ored=55;vit[1].colnum=2;
+ vit[1].cyerw=vit[1].cred=vit[1].ored=60;vit[1].colnum=2;
  for(int i=0;i<2;i++) {
   super_arts[i].store=1;super_arts[i].gauge.i=0;super_arts[i].ok=1;
   spg_dat[i].spg_level=1;sa_stock_trans(1,0,i);
@@ -187,18 +208,28 @@ EMSCRIPTEN_KEEPALIVE void web_step(int bits) {
  else if(t<8&&t>=6)b=SWK_DOWN;
  else if(t<10&&t>=8)b=SWK_DOWN|SWK_RIGHT;
  else if(t<12&&t>=10)b=SWK_RIGHT|SWK_SOUTH;
- int previous_parries=achieved_parries;
+ int previous_parries=achieved_parries,previous_move=plw[0].wu.routine_no[2],previous_routine=plw[0].wu.routine_no[1];
  web_input(1,b);frame();run_frame++;audio_frame++;
+ if(previous_routine==4&&plw[0].wu.routine_no[1]==4){
+  if(finish_stage==2&&previous_move==0&&plw[0].wu.routine_no[2]==17)finish_cancels|=1;
+  if(finish_stage==3&&previous_move==17&&plw[0].wu.routine_no[2]==21)finish_cancels|=2;
+ }
  if(chun_super_frame<0&&plw[1].wu.routine_no[1]==4&&plw[1].wu.routine_no[2]==20)chun_super_frame=run_frame-1;
- if(paring_ctr_vs[1][0]>achieved_parries){achieved_parries=paring_ctr_vs[1][0];parry_tap=-1000;}
+ if(paring_ctr_vs[1][0]>achieved_parries){achieved_parries=paring_ctr_vs[1][0];parry_tap=-1000;if(achieved_parries==15){final_parry_air=plw[0].wu.xyz[1].disp.pos>0;if(!final_parry_air)finish_failed=1;}}
+ if(finish_stage>0&&finish_hits<12&&!plw[1].cb->total)finish_failed=1;
  if(plw[0].wu.vital_new<0)end_result=3;
- else if(plw[1].wu.vital_new<0)end_result=achieved_parries>=15?4:3;
+ else if(plw[1].wu.vital_new<0)end_result=achieved_parries==15&&final_parry_air&&finish_stage==4&&finish_hits==12&&!finish_failed?4:3;
+ else if(finish_failed)end_result=3;
  else if(run_frame>1200)end_result=3;
  check_evo_sequence(previous_parries);
  if(end_result)end_frames=72;
 }
 EMSCRIPTEN_KEEPALIVE int web_value(int key) {
+ if(key==100)return finish_hits;
+ if(key>=101&&key<229)return finish_trace[(key-101)/8][(key-101)%8];
  switch(key) {
+ case 59:return finish_stage;case 60:return finish_failed;case 61:return finish_hits;
+ case 62:return finish_cancels;case 63:return final_parry_air;
  case 56:return parry_tap>=0&&run_frame-parry_tap<PARRY_WINDOW?PARRY_WINDOW-(run_frame-parry_tap):0;
  case 57:return parry_tap;case 58:return PARRY_WINDOW;
  case 54:return evo_failed;case 55:return evo_kicks;
